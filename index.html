@@ -13,7 +13,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.5}
 main{max-width:560px;margin:0 auto;padding:12px 14px 40px}
 nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:6px;padding:10px 14px;max-width:560px;margin:0 auto}
-nav button{flex:1;padding:10px 4px;font-size:14px}
+nav button{flex:1;padding:8px 2px;font-size:11px;line-height:1.35}
 nav button.on{background:var(--pri);color:var(--pt);border-color:var(--pri)}
 button{font:inherit;cursor:pointer;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:12px 14px}
 button:disabled{opacity:.4}
@@ -50,16 +50,17 @@ h3{margin:18px 2px 8px;font-size:15px}
 </head>
 <body>
 <nav id="nav">
-  <button data-tab="roulette">🎯 ルーレット</button>
-  <button data-tab="class">📊 分類</button>
-  <button data-tab="log">📖 記録</button>
-  <button data-tab="set">⚙ 設定</button>
+  <button data-tab="roulette">🎯<br>ルーレット</button>
+  <button data-tab="one">🔍<br>個別</button>
+  <button data-tab="class">📊<br>分類</button>
+  <button data-tab="log">📖<br>記録</button>
+  <button data-tab="set">⚙<br>設定</button>
 </nav>
 <main id="app"></main>
 <script>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
 const D0=()=>({parts:DP.slice(),used:[],rated:{},log:[],act:null});
-let S=D0(),tab='roulette',spinning=false,undoArm=false,delArm=null;
+let S=D0(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sMsg='',sIn=['',''];
 try{const j=localStorage.getItem(K);if(j)S=Object.assign(S,JSON.parse(j))}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -86,7 +87,7 @@ function vSession(){
   const a=S.act;
   let h=`<div class="card"><div class="timer" id="tm">${fmt(el())}</div><div class="row"><button id="tgo" class="${a.t0?'':'pri'}">${a.t0?'⏸ 一時停止':'▶ 開始'}</button><button id="trs" class="ghost">リセット</button></div></div>`;
   a.nums.forEach(n=>{h+=`<div class="card prob"><div class="num">${lab(n)}</div><div class="rt">${['A','B','C','D'].map(g=>`<button class="g g${g} ${a.r[n]===g?'on':''}" data-n="${n}" data-g="${g}">${g}</button>`).join('')}</div></div>`});
-  h+=`<div class="card"><label>📝 反省コメント</label><textarea id="cm" rows="4" placeholder="できなかった理由、次に気をつけること…">${esc(a.comment)}</textarea></div><p id="msg" class="mu c"></p><button class="big" id="fin">✅ 完了して記録する</button><button class="ghost w" id="undo">${undoArm?'もう一度押すと未修に戻します':'やり直し（この問題を未修に戻す）'}</button>`;
+  h+=`<div class="card"><label>📝 反省コメント</label><textarea id="cm" rows="4" placeholder="できなかった理由、次に気をつけること…">${esc(a.comment)}</textarea></div><p id="msg" class="mu c">評価をつけなかった問題は、記録されず未修に戻ります</p><button class="big" id="fin">✅ 完了して記録する</button><button class="ghost w" id="undo">${undoArm?'もう一度押すと未修に戻します':'やり直し（この問題を未修に戻す）'}</button>`;
   return h;
 }
 function vClass(){
@@ -112,7 +113,7 @@ function vLog(){
     const L=days[k],ms=L.reduce((t,s)=>t+s.ms,0),cnt=L.reduce((t,s)=>t+s.nums.length,0);
     return `<h3 class="row"><span>${k}</span><span class="mu">${cnt}問 / ${fmt(ms)}</span></h3>`+L.map((s,i)=>{
       const tm=new Date(s.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
-      return `<div class="card"><div class="row"><b>${L.length-i}回目 <span class="mu">${tm}</span></b><span class="mu">⏱ ${fmt(s.ms)}</span></div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.c?`<div class="cm">${esc(s.c)}</div>`:''}<button class="ghost w" data-del="${s.ts}"${delArm===s.ts?' style="color:var(--D);border-color:var(--D)"':''}>${delArm===s.ts?'もう一度押すと削除（問題は未修に戻ります）':'🗑 この記録を削除して未修に戻す'}</button></div>`;
+      return `<div class="card"><div class="row"><b>${L.length-i}回目 <span class="mu">${tm}</span></b><span class="mu">${s.one?'個別追加':'⏱ '+fmt(s.ms)}</span></div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.c?`<div class="cm">${esc(s.c)}</div>`:''}<button class="ghost w" data-del="${s.ts}"${delArm===s.ts?' style="color:var(--D);border-color:var(--D)"':''}>${delArm===s.ts?'もう一度押すと削除（問題は未修に戻ります）':'🗑 この記録を削除して未修に戻す'}</button></div>`;
     }).join('');
   }).join('');
 }
@@ -121,7 +122,7 @@ function vSet(){
 }
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  $('#app').innerHTML={roulette:vRoulette,class:vClass,log:vLog,set:vSet}[tab]();
+  $('#app').innerHTML={roulette:vRoulette,one:vOne,class:vClass,log:vLog,set:vSet}[tab]();
 }
 function spin(){
   const p=pool();if(!p.length||spinning)return;
@@ -146,22 +147,61 @@ function delRec(ts){
   S.rated={};S.log.forEach(x=>x.nums.forEach(n=>S.rated[n]=x.r[n]));
   save();render();
 }
+function vOne(){
+  const inA=S.act?S.act.nums.includes(sId):false;
+  let h=`<div class="card"><label>🔍 問題を検索</label><div class="row"><span>第</span><input id="ip" type="number" inputmode="numeric" placeholder="部" style="min-width:0" value="${sIn[0]}"><span>部</span><input id="iq" type="number" inputmode="numeric" placeholder="番号" style="min-width:0" value="${sIn[1]}"><span>問目</span></div><button id="sch" class="pri w">検索</button></div>`;
+  if(sId){
+    const g=S.rated[sId],used=S.used.includes(sId),n=S.log.filter(x=>x.nums.includes(sId)).length,ar=delArm==='p'+sId;
+    h+=`<div class="card"><div class="row"><b style="font-size:20px">${lab(sId)}</b><span class="mu">${inA?'ルーレット中':g?'現在の評価 '+g:'未修'}</span></div>`;
+    if(inA)h+='<p class="mu">この問題は今のルーレットに入っています。ルーレット画面で評価してください。</p>';
+    else{
+      h+=`<div class="rt" style="margin:12px 0">${['A','B','C','D'].map(k=>`<button class="g g${k} ${g===k?'on':''}" data-sg="${k}">${k}</button>`).join('')}</div><textarea id="scm" rows="2" placeholder="コメント（任意）">${esc(sC)}</textarea><p class="mu">評価ボタンを押すと、この問題だけを記録します。評価の付け直しもできます。</p>`;
+      if(used)h+=`<button class="ghost w" data-sd="1"${ar?' style="color:var(--D);border-color:var(--D)"':''}>${ar?'もう一度押すと削除（未修に戻ります）':'🗑 この問題の記録をすべて消して未修に戻す（'+n+'件）'}</button>`;
+    }
+    h+='</div>';
+  }
+  return h+`<p class="mu c">${esc(sMsg)}</p>`;
+}
+function schOne(){
+  const a=$('#ip').value,b=$('#iq').value,p=parseInt(a,10),q=parseInt(b,10);
+  sIn=[a,b];sC='';
+  if(!(p>=1&&p<=S.parts.length)){sId=0;sMsg='部は1〜'+S.parts.length+'で入力してください';return render()}
+  if(!(q>=1&&q<=S.parts[p-1])){sId=0;sMsg='第'+p+'部は1〜'+S.parts[p-1]+'問です';return render()}
+  sId=p*1000+q;sMsg='';render();
+}
+function recOne(id,g){
+  S.log.push({ts:Date.now(),nums:[id],r:{[id]:g},ms:0,one:1,c:sC.trim()});
+  if(!S.used.includes(id))S.used.push(id);
+  S.rated[id]=g;sMsg=lab(id)+' を '+g+' で記録しました（記録ページに追加）';sC='';save();render();
+}
+function delOne(id){
+  S.log.forEach(x=>{if(x.nums.includes(id)){x.nums=x.nums.filter(n=>n!==id);delete x.r[id]}});
+  S.log=S.log.filter(x=>x.nums.length);
+  S.used=S.used.filter(n=>n!==id);
+  S.rated={};S.log.forEach(x=>x.nums.forEach(n=>S.rated[n]=x.r[n]));
+  sMsg=lab(id)+' を未修に戻しました';save();render();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'||e.target.id==='iq'))schOne()});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b){tab=b.dataset.tab;delArm=null;render()}});
 $('#app').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
   if(b.dataset.del){const ts=+b.dataset.del;if(delArm!==ts){delArm=ts;render();return}delArm=null;delRec(ts);return}
+  if(b.dataset.sd){const k='p'+sId;if(delArm!==k){delArm=k;render();return}delArm=null;delOne(sId);return}
+  if(b.dataset.sg){recOne(sId,b.dataset.sg);return}
   delArm=null;
+  if(id==='sch')return schOne();
   if(id==='spin')spin();
   else if(b.dataset.g){a.r[b.dataset.n]=b.dataset.g;save();render()}
   else if(id==='tgo'){if(a.t0){a.ms+=Date.now()-a.t0;a.t0=null}else a.t0=Date.now();save();render()}
   else if(id==='trs'){a.ms=0;a.t0=null;save();render()}
   else if(id==='fin'){
-    if(a.nums.some(n=>!a.r[n]))return say('#msg','すべての問題にA〜Dの評価をつけてください');
+    const dn=a.nums.filter(n=>a.r[n]),rest=a.nums.filter(n=>!a.r[n]);
+    if(!dn.length)return say('#msg','1問以上、A〜Dの評価をつけてください');
     const ms=el();
-    S.log.push({ts:Date.now(),nums:a.nums,r:a.r,ms:ms,c:a.comment.trim()});
-    a.nums.forEach(n=>S.rated[n]=a.r[n]);
+    S.log.push({ts:Date.now(),nums:dn,r:a.r,ms:ms,c:a.comment.trim()});
+    dn.forEach(n=>S.rated[n]=a.r[n]);S.used=S.used.filter(n=>!rest.includes(n));
     S.act=null;save();tab='log';render();
   }
   else if(id==='undo'){
@@ -182,9 +222,10 @@ $('#app').addEventListener('click',e=>{
     catch(x){say('#bmsg','復元できませんでした。バックアップ全体を貼り付けてください')}
   }
 });
-document.addEventListener('input',e=>{if(e.target.id==='cm'&&S.act){S.act.comment=e.target.value;save()}});
+document.addEventListener('input',e=>{if(e.target.id==='scm')sC=e.target.value;if(e.target.id==='cm'&&S.act){S.act.comment=e.target.value;save()}});
 setInterval(()=>{const t=$('#tm');if(t&&S.act)t.textContent=fmt(el())},500);
 render();
 </script>
 </body>
 </html>
+
