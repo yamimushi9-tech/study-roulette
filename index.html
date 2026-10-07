@@ -46,6 +46,10 @@ label{font-weight:700;display:block;margin-bottom:6px}
 textarea,input{width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
 h3{margin:18px 2px 8px;font-size:15px}
 .cm{white-space:pre-wrap;margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:10px;font-size:14px}
+.chip[data-id]{touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+.gh.drop{outline:2px dashed var(--c);outline-offset:2px}
+.gh.over{outline-style:solid;background:var(--bg)}
+.dgc{position:fixed;z-index:99;pointer-events:none;margin:0;background:var(--card);box-shadow:0 8px 22px rgba(0,0,0,.4);transform:scale(1.2)}
 </style>
 </head>
 <body>
@@ -70,7 +74,7 @@ const total=()=>S.parts.reduce((t,c)=>t+c,0);
 const lab=id=>`第${Math.floor(id/1000)}部 ${id%1000}問目`,sh=id=>Math.floor(id/1000)+'-'+id%1000;
 const fmt=ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 const el=()=>S.act?S.act.ms+(S.act.t0?Date.now()-S.act.t0:0):0;
-const chip=(n,g)=>`<span class="chip c${g}">${sh(n)}${g?' '+g:''}</span>`;
+const chip=(n,g,d)=>`<span class="chip c${g}"${d?` data-id="${n}"`:''}>${sh(n)}${g?' '+g:''}</span>`;
 
 function setupForm(t){
   return `<div class="card"><label>${t}</label><input id="tot" value="${S.parts.join(',')}"><p class="mu">第1部から順に、各部の問題数をカンマ区切りで入力（現在 ${S.parts.length}部・計${total()}問）</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
@@ -94,10 +98,10 @@ function vClass(){
   const g={A:[],B:[],C:[],D:[]};
   Object.keys(S.rated).forEach(n=>g[S.rated[n]]&&g[S.rated[n]].push(+n));
   const names={D:'要復習',C:'もう少し',B:'まあまあ',A:'完璧'};
-  let h=`<p class="mu">未修: ${pool().length}問 ／ 表記は「部-問」（例: 8-15 = 第8部の15問目）</p>`;
+  let h=`<p class="mu">未修: ${pool().length}問 ／ 表記は「部-問」（例: 8-15 = 第8部の15問目）<br>💡 番号を長押ししてドラッグすると、別の評価へ移せます</p>`;
   ['D','C','B','A'].forEach(k=>{
     g[k].sort((x,y)=>x-y);
-    h+=`<div class="card gh c${k}"><div class="row"><b style="color:var(--c);font-size:18px">${k} <span style="font-size:13px">${names[k]}</span></b><span class="mu">${g[k].length}問</span></div><div>${g[k].length?g[k].map(n=>chip(n,'')).join(''):'<span class="mu">なし</span>'}</div></div>`;
+    h+=`<div class="card gh c${k}" data-g="${k}"><div class="row"><b style="color:var(--c);font-size:18px">${k} <span style="font-size:13px">${names[k]}</span></b><span class="mu">${g[k].length}問</span></div><div>${g[k].length?g[k].map(n=>chip(n,'',1)).join(''):'<span class="mu">なし</span>'}</div></div>`;
   });
   return h;
 }
@@ -110,10 +114,10 @@ function vLog(){
     days[k].push(s);
   });
   return '<p class="mu">表記は「部-問」（例: 8-15 = 第8部の15問目）</p>'+order.map(k=>{
-    const L=days[k],ms=L.reduce((t,s)=>t+s.ms,0),cnt=L.reduce((t,s)=>t+s.nums.length,0);
+    const L=days[k],ms=L.reduce((t,s)=>t+s.ms,0),cnt=L.reduce((t,s)=>t+(s.mv?0:s.nums.length),0);
     return `<h3 class="row"><span>${k}</span><span class="mu">${cnt}問 / ${fmt(ms)}</span></h3>`+L.map((s,i)=>{
       const tm=new Date(s.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
-      return `<div class="card"><div class="row"><b>${L.length-i}回目 <span class="mu">${tm}</span></b><span class="mu">${s.one?'個別追加':'⏱ '+fmt(s.ms)}</span></div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.c?`<div class="cm">${esc(s.c)}</div>`:''}<button class="ghost w" data-del="${s.ts}"${delArm===s.ts?' style="color:var(--D);border-color:var(--D)"':''}>${delArm===s.ts?'もう一度押すと削除（問題は未修に戻ります）':'🗑 この記録を削除して未修に戻す'}</button></div>`;
+      return `<div class="card"><div class="row"><b>${L.length-i}回目 <span class="mu">${tm}</span></b><span class="mu">${s.mv?'分類変更':s.one?'個別追加':'⏱ '+fmt(s.ms)}</span></div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.c?`<div class="cm">${esc(s.c)}</div>`:''}<button class="ghost w" data-del="${s.ts}"${delArm===s.ts?' style="color:var(--D);border-color:var(--D)"':''}>${delArm===s.ts?'もう一度押すと削除（問題は未修に戻ります）':'🗑 この記録を削除して未修に戻す'}</button></div>`;
     }).join('');
   }).join('');
 }
@@ -223,9 +227,60 @@ $('#app').addEventListener('click',e=>{
   }
 });
 document.addEventListener('input',e=>{if(e.target.id==='scm')sC=e.target.value;if(e.target.id==='cm'&&S.act){S.act.comment=e.target.value;save()}});
+let dg=null;
+const pt=e=>e.touches?(e.touches[0]||e.changedTouches[0]):e;
+const tgtAt=(x,y)=>{const e=document.elementFromPoint(x,y);return e&&e.closest('.gh')};
+const clr=()=>document.querySelectorAll('.gh').forEach(x=>x.classList.remove('drop','over'));
+function dStart(e){
+  const c=e.target.closest('[data-id]');if(!c)return;
+  const p=pt(e);dg={id:+c.dataset.id,from:c.closest('.gh').dataset.g,c:c,x:p.clientX,y:p.clientY,on:0};
+  dg.tm=setTimeout(dBegin,e.touches?350:150);
+}
+function dBegin(){
+  const c=dg.c,r=c.getBoundingClientRect(),cs=getComputedStyle(c),g=c.cloneNode(true);
+  g.classList.add('dgc');g.removeAttribute('data-id');
+  g.style.cssText=`left:${r.left}px;top:${r.top}px;color:${cs.color};border-color:${cs.color}`;
+  document.body.appendChild(g);c.style.opacity='.3';
+  dg.g=g;dg.dx=dg.x-r.left;dg.dy=dg.y-r.top;dg.on=1;
+  document.querySelectorAll('.gh').forEach(x=>x.classList.add('drop'));
+  if(navigator.vibrate)navigator.vibrate(15);
+}
+function dMove(e){
+  if(!dg)return;const p=pt(e);
+  if(!dg.on){if(Math.hypot(p.clientX-dg.x,p.clientY-dg.y)>10){clearTimeout(dg.tm);dg=null}return}
+  e.preventDefault();
+  dg.g.style.left=(p.clientX-dg.dx)+'px';dg.g.style.top=(p.clientY-dg.dy)+'px';
+  const t=tgtAt(p.clientX,p.clientY);
+  document.querySelectorAll('.gh').forEach(x=>x.classList.toggle('over',x===t));
+}
+function dEnd(e){
+  if(!dg)return;clearTimeout(dg.tm);
+  if(!dg.on){dg=null;return}
+  const p=pt(e),t=tgtAt(p.clientX,p.clientY),to=t&&t.dataset.g,d=dg;
+  d.g.remove();d.c.style.opacity='';clr();dg=null;
+  if(to&&to!==d.from){
+    S.log.push({ts:Date.now(),nums:[d.id],r:{[d.id]:to},ms:0,mv:1,c:'分類を '+d.from+'→'+to+' に変更'});
+    S.rated[d.id]=to;save();
+  }
+  render();
+}
+function dCancel(){
+  if(!dg)return;clearTimeout(dg.tm);
+  if(dg.g){dg.g.remove();dg.c.style.opacity=''}
+  clr();dg=null;
+}
+$('#app').addEventListener('touchstart',dStart,{passive:true});
+$('#app').addEventListener('mousedown',dStart);
+$('#app').addEventListener('contextmenu',e=>{if(e.target.closest('[data-id]'))e.preventDefault()});
+document.addEventListener('touchmove',dMove,{passive:false});
+document.addEventListener('mousemove',dMove);
+document.addEventListener('touchend',dEnd);
+document.addEventListener('mouseup',dEnd);
+document.addEventListener('touchcancel',dCancel);
 setInterval(()=>{const t=$('#tm');if(t&&S.act)t.textContent=fmt(el())},500);
 render();
 </script>
 </body>
 </html>
+
 
