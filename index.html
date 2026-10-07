@@ -12,8 +12,8 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.5}
 main{max-width:560px;margin:0 auto;padding:12px 14px 40px}
-nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:6px;padding:10px 14px;max-width:560px;margin:0 auto}
-nav button{flex:1;padding:8px 2px;font-size:11px;line-height:1.35}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;padding:10px 8px;max-width:560px;margin:0 auto}
+nav button{flex:1;min-width:0;padding:8px 0;font-size:10px;line-height:1.35}
 nav button.on{background:var(--pri);color:var(--pt);border-color:var(--pri)}
 button{font:inherit;cursor:pointer;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:12px 14px}
 button:disabled{opacity:.4}
@@ -55,6 +55,7 @@ h3{margin:18px 2px 8px;font-size:15px}
 <body>
 <nav id="nav">
   <button data-tab="roulette">🎯<br>ルーレット</button>
+  <button data-tab="rev">📚<br>復習</button>
   <button data-tab="one">🔍<br>個別</button>
   <button data-tab="class">📊<br>分類</button>
   <button data-tab="log">📖<br>記録</button>
@@ -74,6 +75,7 @@ const total=()=>S.parts.reduce((t,c)=>t+c,0);
 const lab=id=>`第${Math.floor(id/1000)}部 ${id%1000}問目`,sh=id=>Math.floor(id/1000)+'-'+id%1000;
 const fmt=ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 const el=()=>S.act?S.act.ms+(S.act.t0?Date.now()-S.act.t0:0):0;
+const cdList=()=>Object.keys(S.rated).map(Number).filter(n=>S.rated[n]==='C'||S.rated[n]==='D').sort((x,y)=>x-y);
 const chip=(n,g,d)=>`<span class="chip c${g}"${d?` data-id="${n}"`:''}>${sh(n)}${g?' '+g:''}</span>`;
 
 function setupForm(t){
@@ -82,16 +84,21 @@ function setupForm(t){
 function vRoulette(){
   const p=pool(),T=total(),done=T-p.length;
   let h=`<div class="card"><div class="row"><span>未修 <b>${p.length}</b> / ${T} 問</span><span class="mu">${Math.round(done/T*100)}% 完了</span></div><div class="bar"><i style="width:${done/T*100}%"></i></div></div>`;
-  if(S.act)return h+vSession();
+  if(S.act)return h+(S.act.rv?'<div class="card c mu">📚 復習中です。「復習」タブで続けてください</div>':vSession());
   h+=`<div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="spin" ${p.length?'':'disabled'}>🎯 ルーレットを回す</button>`;
   if(!p.length)h+='<p class="c mu">全問題を一巡しました 🎉</p>';
   return h;
 }
+function vRev(){
+  if(S.act)return S.act.rv?vSession():'<div class="card c mu">🎯 ルーレット中です。完了してから復習できます</div>';
+  const cd=cdList(),nd=cd.filter(n=>S.rated[n]==='D').length;
+  return `<div class="card"><label>📚 復習</label><p class="mu">C・D評価の問題からランダムに5問を出題します（現在 D: ${nd}問 ／ C: ${cd.length-nd}問）。評価を付け直すと分類が更新されます。</p></div><div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="rv" ${cd.length?'':'disabled'}>📚 復習ルーレットを回す</button>${cd.length?'':'<p class="c mu">C・Dの問題がまだありません</p>'}`;
+}
 function vSession(){
   const a=S.act;
-  let h=`<div class="card"><div class="timer" id="tm">${fmt(el())}</div><div class="row"><button id="tgo" class="${a.t0?'':'pri'}">${a.t0?'⏸ 一時停止':'▶ 開始'}</button><button id="trs" class="ghost">リセット</button></div></div>`;
-  a.nums.forEach(n=>{h+=`<div class="card prob"><div class="num">${lab(n)}</div><div class="rt">${['A','B','C','D'].map(g=>`<button class="g g${g} ${a.r[n]===g?'on':''}" data-n="${n}" data-g="${g}">${g}</button>`).join('')}</div></div>`});
-  h+=`<div class="card"><label>📝 反省コメント</label><textarea id="cm" rows="4" placeholder="できなかった理由、次に気をつけること…">${esc(a.comment)}</textarea></div><p id="msg" class="mu c">評価をつけなかった問題は、記録されず未修に戻ります</p><button class="big" id="fin">✅ 完了して記録する</button><button class="ghost w" id="undo">${undoArm?'もう一度押すと未修に戻します':'やり直し（この問題を未修に戻す）'}</button>`;
+  let h=(a.rv?'<p class="mu c">📚 復習セッション（C・D評価の問題から出題）</p>':'')+`<div class="card"><div class="timer" id="tm">${fmt(el())}</div><div class="row"><button id="tgo" class="${a.t0?'':'pri'}">${a.t0?'⏸ 一時停止':'▶ 開始'}</button><button id="trs" class="ghost">リセット</button></div></div>`;
+  a.nums.forEach(n=>{h+=`<div class="card prob"><div class="num">${lab(n)}${a.rv?`<br><small>現在の評価 ${S.rated[n]}</small>`:''}</div><div class="rt">${['A','B','C','D'].map(g=>`<button class="g g${g} ${a.r[n]===g?'on':''}" data-n="${n}" data-g="${g}">${g}</button>`).join('')}</div></div>`});
+  h+=`<div class="card"><label>📝 反省コメント</label><textarea id="cm" rows="4" placeholder="できなかった理由、次に気をつけること…">${esc(a.comment)}</textarea></div><p id="msg" class="mu c">${a.rv?'評価をつけなかった問題は、元の評価のままです':'評価をつけなかった問題は、記録されず未修に戻ります'}</p><button class="big" id="fin">✅ 完了して記録する</button><button class="ghost w" id="undo">${undoArm?(a.rv?'もう一度押すとやめます':'もう一度押すと未修に戻します'):(a.rv?'やめる（復習を中止）':'やり直し（この問題を未修に戻す）')}</button>`;
   return h;
 }
 function vClass(){
@@ -117,7 +124,7 @@ function vLog(){
     const L=days[k],ms=L.reduce((t,s)=>t+s.ms,0),cnt=L.reduce((t,s)=>t+(s.mv?0:s.nums.length),0);
     return `<h3 class="row"><span>${k}</span><span class="mu">${cnt}問 / ${fmt(ms)}</span></h3>`+L.map((s,i)=>{
       const tm=new Date(s.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
-      return `<div class="card"><div class="row"><b>${L.length-i}回目 <span class="mu">${tm}</span></b><span class="mu">${s.mv?'分類変更':s.one?'個別追加':'⏱ '+fmt(s.ms)}</span></div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.c?`<div class="cm">${esc(s.c)}</div>`:''}<button class="ghost w" data-del="${s.ts}"${delArm===s.ts?' style="color:var(--D);border-color:var(--D)"':''}>${delArm===s.ts?'もう一度押すと削除（問題は未修に戻ります）':'🗑 この記録を削除して未修に戻す'}</button></div>`;
+      return `<div class="card"><div class="row"><b>${L.length-i}回目 ${s.rv?'📚復習 ':''}<span class="mu">${tm}</span></b><span class="mu">${s.mv?'分類変更':s.one?'個別追加':'⏱ '+fmt(s.ms)}</span></div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.c?`<div class="cm">${esc(s.c)}</div>`:''}<button class="ghost w" data-del="${s.ts}"${delArm===s.ts?' style="color:var(--D);border-color:var(--D)"':''}>${delArm===s.ts?'もう一度押すと削除（問題は未修に戻ります）':'🗑 この記録を削除して未修に戻す'}</button></div>`;
     }).join('');
   }).join('');
 }
@@ -126,11 +133,11 @@ function vSet(){
 }
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  $('#app').innerHTML={roulette:vRoulette,one:vOne,class:vClass,log:vLog,set:vSet}[tab]();
+  $('#app').innerHTML={roulette:vRoulette,rev:vRev,one:vOne,class:vClass,log:vLog,set:vSet}[tab]();
 }
-function spin(){
-  const p=pool();if(!p.length||spinning)return;
-  spinning=true;$('#spin').disabled=true;
+function spin(rv){
+  const p=rv?cdList():pool();if(!p.length||spinning)return;
+  spinning=true;$(rv?'#rv':'#spin').disabled=true;
   const q=p.slice(),pick=[];
   for(let i=0;i<Math.min(5,p.length);i++)pick.push(q.splice(Math.floor(Math.random()*q.length),1)[0]);
   pick.sort((x,y)=>x-y);
@@ -140,7 +147,7 @@ function spin(){
   setTimeout(()=>{
     clearInterval(iv);
     sl.forEach((s,i)=>{s.classList.remove('spin');s.textContent=pick[i]!==undefined?lab(pick[i]):'–'});
-    setTimeout(()=>{S.used.push(...pick);S.act={nums:pick,r:{},comment:'',ms:0,t0:null};save();spinning=false;undoArm=false;render()},900);
+    setTimeout(()=>{if(!rv)S.used.push(...pick);S.act={nums:pick,r:{},comment:'',ms:0,t0:null,rv:rv?1:0};save();spinning=false;undoArm=false;render()},900);
   },1400);
 }
 function delRec(ts){
@@ -197,6 +204,7 @@ $('#app').addEventListener('click',e=>{
   delArm=null;
   if(id==='sch')return schOne();
   if(id==='spin')spin();
+  else if(id==='rv')spin(1);
   else if(b.dataset.g){a.r[b.dataset.n]=b.dataset.g;save();render()}
   else if(id==='tgo'){if(a.t0){a.ms+=Date.now()-a.t0;a.t0=null}else a.t0=Date.now();save();render()}
   else if(id==='trs'){a.ms=0;a.t0=null;save();render()}
@@ -204,13 +212,13 @@ $('#app').addEventListener('click',e=>{
     const dn=a.nums.filter(n=>a.r[n]),rest=a.nums.filter(n=>!a.r[n]);
     if(!dn.length)return say('#msg','1問以上、A〜Dの評価をつけてください');
     const ms=el();
-    S.log.push({ts:Date.now(),nums:dn,r:a.r,ms:ms,c:a.comment.trim()});
-    dn.forEach(n=>S.rated[n]=a.r[n]);S.used=S.used.filter(n=>!rest.includes(n));
+    S.log.push({ts:Date.now(),nums:dn,r:a.r,ms:ms,c:a.comment.trim(),rv:a.rv});
+    dn.forEach(n=>S.rated[n]=a.r[n]);if(!a.rv)S.used=S.used.filter(n=>!rest.includes(n));
     S.act=null;save();tab='log';render();
   }
   else if(id==='undo'){
     if(!undoArm){undoArm=true;render();return}
-    const u=new Set(a.nums);S.used=S.used.filter(n=>!u.has(n));S.act=null;undoArm=false;save();render();
+    if(!a.rv){const u=new Set(a.nums);S.used=S.used.filter(n=>!u.has(n))}S.act=null;undoArm=false;save();render();
   }
   else if(id==='stot'){
     const P=$('#tot').value.split(/[,、，\s]+/).filter(x=>x).map(x=>parseInt(x,10));
@@ -282,5 +290,6 @@ render();
 </script>
 </body>
 </html>
+
 
 
