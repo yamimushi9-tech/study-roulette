@@ -57,7 +57,11 @@ h3{margin:18px 2px 8px;font-size:15px}
 .rl .chip{font-size:12px;padding:1px 8px;margin:2px 2px 0 0}
 .rr{padding:9px 10px;display:flex;flex-direction:column}
 .rc{flex:1;white-space:pre-wrap;word-break:break-word;font-size:14px}
-.dl{align-self:flex-end;margin-top:6px;padding:2px 8px;font-size:12px;border-radius:8px;background:transparent;color:var(--mu)}
+.ra{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px;margin-top:6px}
+.dl,.fx{padding:2px 8px;font-size:12px;border-radius:8px;background:transparent;color:var(--mu)}
+.dl{margin-left:auto}
+.fx{font-weight:700;color:var(--C);border-color:var(--C)}
+.fx.ok{background:var(--A);border-color:var(--A);color:var(--pt)}
 .dl.arm{color:var(--D);border-color:var(--D)}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
 </style>
@@ -135,7 +139,8 @@ function vLog(){
     return `<h3 class="row"><span>${k}</span><span class="mu">${cnt}問 / ${fmt(ms)}</span></h3>`+L.map((s,i)=>{
       const tm=new Date(s.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
       const ar=delArm===s.ts,ty=s.mv?'分類変更':s.one?'個別追加':s.rv?'📚復習 ⏱'+fmt(s.ms):'🎯 ⏱'+fmt(s.ms);
-      return `<div class="rec"><div class="rl"><div><b>${L.length-i}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div></div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div>`;
+      const fx=s.c&&!s.mv?`<button class="fx${s.fx?' ok':''}" data-fx="${s.ts}">${s.fx?'✅ 対策済み':'⚠ 未対策'}</button>`:'';
+      return `<div class="rec"><div class="rl"><div><b>${L.length-i}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div></div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
     }).join('');
   }).join('');
 }
@@ -214,6 +219,7 @@ $('#app').addEventListener('click',e=>{
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
   if(id==='srec'){const t=$('#scm');if(t)sC=t.value;if(!sR){sMsg='A〜Dの評価を選んでください';render();return}recOne(sId,sR);return}
   delArm=null;
+  if(b.dataset.fx){const r=S.log.find(x=>x.ts===+b.dataset.fx);if(r){r.fx=r.fx?0:1;save()}render();return}
   if(id==='sch')return schOne();
   if(id==='spin')spin();
   else if(id==='rv')spin(1);
@@ -318,9 +324,7 @@ document.addEventListener('touchend',e=>{
 },{passive:true});
 setInterval(()=>{const t=$('#tm');if(t&&S.act)t.textContent=fmt(el())},500);
 render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
-
-
-
