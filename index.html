@@ -65,6 +65,9 @@ h3{margin:18px 2px 8px;font-size:15px}
 .fx.ok{background:var(--A);border-color:var(--A);color:var(--pt)}
 .dl.arm{color:var(--D);border-color:var(--D)}
 #one{margin-top:22px;scroll-margin-top:72px}
+.bks{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 14px}
+.bk{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px}
+.bk.on{background:var(--pri);color:var(--pt);border-color:var(--pri)}
 .cdp{min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
 .cx{font-size:32px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
 .cr{font-size:18px;color:var(--mu);min-height:26px;margin-top:4px;font-variant-numeric:tabular-nums}
@@ -76,6 +79,23 @@ h3{margin:18px 2px 8px;font-size:15px}
 .hi{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin-bottom:6px;padding:10px 12px;text-align:left}
 .hx{color:var(--mu);font-size:13px;word-break:break-all}
 .hv{font-weight:800;white-space:nowrap}
+details.card>summary{cursor:pointer;font-weight:700;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary::after{content:"▸";color:var(--mu);margin-left:4px}
+details.card[open]>summary::after{content:"▾"}
+details.card[open]>summary{margin-bottom:10px}
+.sn{margin-left:auto;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translate(-50%,12px);max-width:86%;background:var(--pri);color:var(--pt);padding:10px 18px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:100;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@keyframes pop{0%{transform:scale(.8)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
+.bk.pop{animation:pop .38s ease-out}
+#mdl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12vh) 20px 20px;opacity:0;transition:opacity .18s}
+#mdl[hidden]{display:none}
+#mdl.show{opacity:1}
+.mbox{width:100%;max-width:420px;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.45);transform:translateY(14px) scale(.96);transition:transform .2s}
+#mdl.show .mbox{transform:none}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:17px}
+.mh button{padding:4px 12px}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
 </style>
 </head>
@@ -89,11 +109,45 @@ h3{margin:18px 2px 8px;font-size:15px}
   <button data-tab="set">⚙<br>設定</button>
 </nav>
 <main id="app"></main>
+<div id="toast"></div>
+<div id="mdl" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mt">
+    <div class="mh"><b id="mt">＋ 教材を追加</b><button id="mx" class="ghost" aria-label="閉じる">✕</button></div>
+    <input id="nn" placeholder="教材名（例: 日本史）" maxlength="30">
+    <input id="np" placeholder="各部の問題数（例: 20,20,15）" style="margin-top:8px">
+    <p class="mu" style="margin:8px 0 0">各部の問題数は、第1部から順にカンマ区切りで入力します。</p>
+    <p class="mu" id="amsg" style="min-height:20px;margin:6px 0 0"></p>
+    <button id="nadd" class="pri w">追加して切り替える</button>
+  </div>
+</div>
 <script>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
-const D0=()=>({parts:DP.slice(),used:[],rated:{},log:[],act:null,calc:{hist:[]}});
-let S=D0(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false;
-try{const j=localStorage.getItem(K);if(j)S=Object.assign(S,JSON.parse(j))}catch(e){}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const newBook=(name,parts)=>({id:uid(),name:name,parts:parts||DP.slice(),used:[],rated:{},log:[],act:null});
+const BF=['parts','used','rated','log','act'];
+function mkS(src){
+  const o={books:[newBook('教材1')],cur:'',calc:{hist:[]}};
+  o.cur=o.books[0].id;
+  const cb=()=>o.books.find(b=>b.id===o.cur)||o.books[0];
+  BF.forEach(f=>Object.defineProperty(o,f,{get(){return cb()[f]},set(v){cb()[f]=v}}));
+  if(src&&typeof src==='object')Object.assign(o,src);
+  o.books=(Array.isArray(o.books)?o.books:[]).filter(b=>b&&typeof b==='object');
+  if(!o.books.length)o.books=[newBook('教材1')];
+  o.books.forEach(b=>{
+    if(!b.id)b.id=uid();
+    b.name=String(b.name||'教材');
+    if(!Array.isArray(b.parts)||!b.parts.length)b.parts=DP.slice();
+    if(!Array.isArray(b.used))b.used=[];
+    if(!b.rated||typeof b.rated!=='object')b.rated={};
+    if(!Array.isArray(b.log))b.log=[];
+    if(b.act===undefined)b.act=null;
+  });
+  if(!o.books.some(b=>b.id===o.cur))o.cur=o.books[0].id;
+  if(!o.calc||typeof o.calc!=='object')o.calc={hist:[]};
+  return o;
+}
+let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt;
+try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -157,8 +211,70 @@ function vLog(){
     }).join('');
   }).join('');
 }
+function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1700)}
+function anim(d,px,sec){
+  if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const a=$('#app');a.style.setProperty('--sx',(d>0?px:-px)+'px');a.style.animation='none';a.offsetWidth;a.style.animation='sl '+sec+'s ease-out';
+}
+function vBar(){
+  return '<div class="bks">'+S.books.map(b=>`<button class="bk${b.id===S.cur?' on':''}${b.id===popId?' pop':''}" data-bk="${esc(b.id)}">${esc(b.name)}</button>`).join('')+'<button class="bk" id="bkadd">＋</button></div>';
+}
+const curBook=()=>S.books.find(b=>b.id===S.cur)||S.books[0];
+const parseParts=v=>{const P=String(v).split(/[,、，\s]+/).filter(x=>x).map(x=>parseInt(x,10));return P.length&&P.every(x=>x>=1)?P:null};
+function setBook(id){
+  if(spinning||S.cur===id||!S.books.some(b=>b.id===id))return;
+  const a=S.act;if(a&&a.t0){a.ms+=Date.now()-a.t0;a.t0=null}
+  const o=S.books.findIndex(b=>b.id===S.cur),n=S.books.findIndex(b=>b.id===id);
+  S.cur=id;undoArm=false;delArm=null;sId=0;sC='';sR='';sMsg='';sIn=['',''];bkArm=false;popId=id;
+  save();render();popId='';
+  anim(n>o?1:-1,70,.34);toast('📘 '+curBook().name+' に切り替えました');
+}
+let mt;
+function openAdd(){
+  clearTimeout(mt);
+  const m=$('#mdl');$('#nn').value='';$('#np').value='';
+  const e=$('#amsg');e.textContent='';e.style.color='';
+  m.hidden=false;m.offsetWidth;m.classList.add('show');
+  document.body.style.overflow='hidden';
+  $('#nn').focus();
+}
+function closeAdd(){
+  const m=$('#mdl');if(m.hidden)return;
+  m.classList.remove('show');document.body.style.overflow='';
+  clearTimeout(mt);mt=setTimeout(()=>{m.hidden=true},180);
+}
+function addBook(){
+  const n=$('#nn').value.trim(),P=parseParts($('#np').value),e=$('#amsg');
+  const bad=t=>{e.textContent=t;e.style.color='var(--D)'};
+  if(spinning)return bad('ルーレット中は追加できません');
+  if(!n)return bad('教材名を入力してください');
+  if(!P)return bad('各部の問題数を、1以上の数のカンマ区切りで入力してください');
+  const nb=newBook(n.slice(0,30),P);S.books.push(nb);
+  closeAdd();tab='roulette';setBook(nb.id);window.scrollTo(0,0);
+}
+$('#mdl').addEventListener('click',e=>{
+  if(e.target.id==='mdl')return closeAdd();
+  const b=e.target.closest('button');if(!b)return;
+  if(b.id==='mx')closeAdd();else if(b.id==='nadd')addBook();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeAdd();
+  else if(e.key==='Enter'&&(e.target.id==='nn'||e.target.id==='np'))addBook();
+});
+function delBook(){
+  if(S.books.length<2)return;
+  const i=S.books.findIndex(b=>b.id===S.cur);
+  S.books.splice(i,1);S.cur=S.books[Math.max(0,i-1)].id;
+  undoArm=false;delArm=null;sId=0;sC='';sR='';sMsg='';sIn=['',''];bkArm=false;
+  save();render();
+  anim(-1,70,.34);toast('🗑 削除しました。「'+curBook().name+'」に切り替えました');
+}
 function vSet(){
-  return setupForm('各部の問題数')+`<div class="card"><label>💾 バックアップ</label><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></div><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
+  const b=curBook(),many=S.books.length>1;
+  return `<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
+  +setupForm('各部の問題数（'+esc(b.name)+'）')
+  +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
+  +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
 }
 const OPS='+−×÷',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.']];
 const hist=()=>{if(!S.calc||!Array.isArray(S.calc.hist))S.calc={hist:[]};return S.calc.hist};
@@ -262,7 +378,7 @@ function vCalc(){
 }
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  $('#app').innerHTML={roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,set:vSet}[tab]();
+  $('#app').innerHTML=(tab==='calc'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,set:vSet}[tab]();
   if(tab==='calc')cUp();
 }
 function spin(rv){
@@ -330,6 +446,11 @@ $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)g
 $('#app').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
+  if(b.dataset.bk){setBook(b.dataset.bk);return}
+  if(id==='bkadd'){openAdd();return}
+  if(id==='bdel'){if(!bkArm){bkArm=true;render();return}delBook();return}
+  if(bkArm){bkArm=false;const bd=$('#bdel');if(bd){bd.textContent='削除する';bd.style.cssText=''}}
+  if(id==='bren'){const v=$('#bname').value.trim();if(!v)return say('#rmsg','教材名を入力してください');curBook().name=v.slice(0,30);save();render();toast('✅ 名前を保存しました');return}
   if(b.dataset.k){if(cArm){cArm=false;render()}cKey(b.dataset.k);return}
   if(b.dataset.h!==undefined){const it=hist()[+b.dataset.h];if(it){cIns(it.r);window.scrollTo({top:0,behavior:'smooth'})}return}
   if(id==='chc'){if(!cArm){cArm=true;render();return}cArm=false;S.calc.hist=[];save();render();return}
@@ -369,7 +490,7 @@ $('#app').addEventListener('click',e=>{
     try{navigator.clipboard.writeText(t.value).then(()=>say('#bmsg','コピーしました'),()=>say('#bmsg','選択状態です。手動でコピーしてください'))}catch(x){say('#bmsg','選択状態です。手動でコピーしてください')}
   }
   else if(id==='brs'){
-    try{const d=JSON.parse($('#bk').value);if(!d||!Array.isArray(d.log)||!Array.isArray(d.used)||!Array.isArray(d.parts))throw 0;S=Object.assign(D0(),d);save();say('#bmsg','復元しました');setTimeout(render,700)}
+    try{const d=JSON.parse($('#bk').value);const old=d&&Array.isArray(d.log)&&Array.isArray(d.used)&&Array.isArray(d.parts),nw=d&&Array.isArray(d.books)&&d.books.length;if(!old&&!nw)throw 0;S=mkS(d);undoArm=false;delArm=null;sId=0;sIn=['',''];save();say('#bmsg','復元しました');setTimeout(render,700)}
     catch(x){say('#bmsg','復元できませんでした。バックアップ全体を貼り付けてください')}
   }
 });
@@ -427,13 +548,13 @@ document.addEventListener('touchcancel',dCancel);
 const TABS=['roulette','rev','calc','class','log','set'];
 function go(t){
   const o=TABS.indexOf(tab),n=TABS.indexOf(t);
-  tab=t;delArm=null;cArm=false;render();window.scrollTo(0,0);
-  const a=$('#app');a.style.setProperty('--sx',(n>o?40:-40)+'px');a.style.animation='none';a.offsetWidth;a.style.animation='sl .22s ease-out';
+  tab=t;delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
+  anim(n>o?1:-1,40,.22);
 }
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,#mdl'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
