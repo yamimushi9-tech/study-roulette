@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>サイト管理</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1d2330;--mu:#6b7385;--bd:#e3e6ee;--pri:#4f46e5;--pt:#fff;--ng:#dc2626;--ok:#16a34a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root{--bg:#12141b;--card:#1b1f2a;--tx:#e8ebf2;--mu:#9aa3b5;--bd:#2c3242;--pri:#818cf8;--pt:#10131a;--ng:#f87171;--ok:#4ade80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.5}
+main{max-width:560px;margin:0 auto;padding:14px 14px 40px}
+h1{font-size:20px;margin:6px 2px 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px}
+label,.l{font-weight:700;display:block;margin:10px 0 6px}
+.mu{color:var(--mu);font-size:13px}
+input,textarea{width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+textarea{font-family:monospace;font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+button,.b{font:inherit;font-size:14px;cursor:pointer;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:10px 12px}
+.big{width:100%;font-size:18px;font-weight:700;padding:16px;background:var(--pri);color:var(--pt);border-color:var(--pri)}
+button:disabled{opacity:.4}
+#m{white-space:pre-wrap;word-break:break-word;text-align:center;min-height:24px}
+</style>
+</head>
+<body>
+<main>
+<h1>🔧 サイト管理</h1>
+<div class="card">
+<label for="tk" style="margin-top:0">管理者トークン</label>
+<input id="tk" type="password" autocomplete="current-password" placeholder="github_pat_...">
+<div class="row"><label style="margin:0;font-weight:400"><input id="sv" type="checkbox" checked style="width:auto"> この端末に保存</label><button id="lo">トークンを削除</button></div>
+<label for="rp">リポジトリ（ユーザー名/リポジトリ名）</label>
+<input id="rp">
+<label for="fp">更新するファイル</label>
+<input id="fp">
+</div>
+<div class="card">
+<div class="l" style="margin-top:0">コード</div>
+<textarea id="cd" rows="12" placeholder="ここに新しいコード全体を貼り付け"></textarea>
+<div class="row">
+<label class="b" for="fl" style="margin:0;font-weight:400">📂 ファイルを選ぶ</label><input type="file" id="fl" hidden>
+<button id="ld">📥 現在のコードを読み込む</button>
+<button id="pv">↩ 直前の版</button>
+</div>
+</div>
+<button class="big" id="go">🚀 更新する</button>
+<p id="m" class="mu"></p>
+<p class="mu">更新後、サイトへの反映には1〜2分かかります。</p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const gs=k=>{try{return localStorage.getItem('adm_'+k)||''}catch(e){return ''}};
+const ss=(k,v)=>{try{v?localStorage.setItem('adm_'+k,v):localStorage.removeItem('adm_'+k)}catch(e){}};
+const say=(t,c)=>{const m=$('#m');m.textContent=t;m.style.color=c||'var(--mu)'};
+const b64=s=>{const u=new TextEncoder().encode(s);let b='';for(let i=0;i<u.length;i+=8192)b+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(b)};
+const ub64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt(0)));
+const nr=()=>$('#rp').value.trim().replace(/^\/+|\/+$/g,''),nf=()=>$('#fp').value.trim().replace(/^\/+/,'');
+const ERR=e=>e.status===401?'トークンが正しくないか、期限切れです':(e.status===403||e.status===404)?'権限がありません。トークンの対象リポジトリと「Contents: Read and write」権限、リポジトリ名・ファイル名を確認してください':(e.status===409||e.status===422)?'ファイルが他で更新されています。「現在のコードを読み込む」からやり直してください':'エラー: '+e.message;
+let arm=0;
+const rst=()=>{arm=0;$('#go').textContent='🚀 更新する'};
+function cfg(){
+  const t=$('#tk').value.trim(),r=nr(),f=nf();
+  if(!t||!/^[^/\s]+\/[^/\s]+$/.test(r)||!f){say('トークン・リポジトリ・ファイル名を入力してください','var(--ng)');return null}
+  return{t,r,f};
+}
+async function api(c,method,body){
+  const res=await fetch('https://api.github.com/repos/'+c.r+'/contents/'+c.f.split('/').map(encodeURIComponent).join('/')+(method==='GET'?'?ref=main':''),{method:method,cache:'no-store',headers:{Authorization:'Bearer '+c.t,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  let j={};try{j=await res.json()}catch(e){}
+  if(!res.ok){const e=new Error(j.message||res.status);e.status=res.status;throw e}
+  return j;
+}
+function chk(f,s){
+  if(/\.json$/i.test(f)){try{JSON.parse(s)}catch(e){return 'JSONの形式が正しくありません'}}
+  if(/\.js$/i.test(f)){try{new Function(s)}catch(e){return 'JavaScriptに文法エラーがあります: '+e.message}}
+  if(/\.html?$/i.test(f)){
+    if(!/<html[\s>]/i.test(s)||!/<\/html>\s*$/i.test(s))return 'HTMLが途中で切れている可能性があります（<html>から</html>まで全部貼ってください）';
+    const re=/<script\b([^>]*)>([\s\S]*?)<\/script>/gi;let m;
+    while((m=re.exec(s))){
+      if(/\bsrc=/i.test(m[1])||/type\s*=\s*["']?(?!text\/javascript|application\/javascript)/i.test(m[1]))continue;
+      try{new Function(m[2])}catch(e){return 'JavaScriptに文法エラーがあります: '+e.message}
+    }
+  }
+  return '';
+}
+$('#tk').value=gs('tk');$('#rp').value=gs('rp')||'yamimushi9-tech/study-roulette';$('#fp').value=gs('fp')||'index.html';
+document.addEventListener('input',rst);
+$('#lo').onclick=()=>{ss('tk','');$('#tk').value='';say('この端末のトークンを削除しました')};
+$('#fl').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#cd').value=await f.text();say(f.name+' を読み込みました');e.target.value=''};
+$('#pv').onclick=()=>{const p=gs('prev_'+nr()+'/'+nf());if(!p)return say('この端末には直前の版が保存されていません','var(--ng)');$('#cd').value=p;say('直前の版を入力欄に入れました。「更新する」で元に戻せます')};
+$('#ld').onclick=async()=>{
+  const c=cfg();if(!c)return;say('読み込み中…');
+  try{const j=await api(c,'GET');$('#cd').value=ub64(j.content);say(c.f+' を読み込みました')}catch(e){say(ERR(e),'var(--ng)')}
+};
+$('#go').onclick=async()=>{
+  const c=cfg();if(!c)return;const code=$('#cd').value;
+  if(!code.trim())return say('コードを貼り付けてください','var(--ng)');
+  const bad=chk(c.f,code);if(bad)return say(bad,'var(--ng)');
+  if(!arm){arm=1;$('#go').textContent='もう一度押すと '+c.f+' を更新します';return}
+  rst();$('#go').disabled=true;say('更新中…');
+  try{
+    let sha,old='';
+    try{const j=await api(c,'GET');sha=j.sha;old=ub64(j.content)}catch(e){if(e.status!==404)throw e}
+    const r=await api(c,'PUT',{message:'管理ページから更新',content:b64(code),sha:sha,branch:'main'});
+    if(old)ss('prev_'+c.r+'/'+c.f,old);
+    ss('tk',$('#sv').checked?c.t:'');ss('rp',c.r);ss('fp',c.f);
+    say((sha?'✅ 更新しました':'✅ 新しく作成しました')+'（'+r.commit.sha.slice(0,7)+'）\n反映まで1〜2分かかります','var(--ok)');
+  }catch(e){say(ERR(e),'var(--ng)')}
+  $('#go').disabled=false;
+};
+</script>
+</body>
+</html>
