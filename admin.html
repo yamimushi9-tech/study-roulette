@@ -26,6 +26,7 @@ button:disabled{opacity:.4}
 </head>
 <body>
 <main>
+<a href="./" style="display:inline-block;padding:4px 2px;color:var(--pri);text-decoration:none">← 学習ルーレットに戻る</a>
 <h1>🔧 サイト管理</h1>
 <div class="card">
 <label for="tk" style="margin-top:0">管理者トークン</label>
@@ -43,6 +44,7 @@ button:disabled{opacity:.4}
 <label class="b" for="fl" style="margin:0;font-weight:400">📂 ファイルを選ぶ</label><input type="file" id="fl" hidden>
 <button id="ld">📥 現在のコードを読み込む</button>
 <button id="pv">↩ 直前の版</button>
+<button id="cl">🗑 全削除</button>
 </div>
 </div>
 <button class="big" id="go">🚀 更新する</button>
@@ -85,7 +87,14 @@ function chk(f,s){
   return '';
 }
 $('#tk').value=gs('tk');$('#rp').value=gs('rp')||'yamimushi9-tech/study-roulette';$('#fp').value=gs('fp')||'index.html';
-document.addEventListener('input',rst);
+let ca=0;const rc=()=>{ca=0;$('#cl').textContent='🗑 全削除'};
+document.addEventListener('input',()=>{rst();rc()});
+document.addEventListener('click',e=>{if(e.target.id!=='cl')rc()});
+$('#cl').onclick=()=>{
+  if(!$('#cd').value)return say('コード欄はすでに空です');
+  if(!ca){ca=1;$('#cl').textContent='もう一度押すと全削除';return}
+  $('#cd').value='';rc();rst();say('コード欄を全削除しました');
+};
 $('#lo').onclick=()=>{ss('tk','');$('#tk').value='';say('この端末のトークンを削除しました')};
 $('#fl').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#cd').value=await f.text();say(f.name+' を読み込みました');e.target.value=''};
 $('#pv').onclick=()=>{const p=gs('prev_'+nr()+'/'+nf());if(!p)return say('この端末には直前の版が保存されていません','var(--ng)');$('#cd').value=p;say('直前の版を入力欄に入れました。「更新する」で元に戻せます')};
