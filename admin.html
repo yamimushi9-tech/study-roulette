@@ -15,12 +15,16 @@ h1{font-size:20px;margin:6px 2px 12px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px}
 label,.l{font-weight:700;display:block;margin:10px 0 6px}
 .mu{color:var(--mu);font-size:13px}
-input,textarea{width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+input,textarea,select{width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
 textarea{font-family:monospace;font-size:12px}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 button,.b{font:inherit;font-size:14px;cursor:pointer;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:10px 12px}
 .big{width:100%;font-size:18px;font-weight:700;padding:16px;background:var(--pri);color:var(--pt);border-color:var(--pri)}
 button:disabled{opacity:.4}
+summary{cursor:pointer;font-weight:700;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"▸";color:var(--mu)}
+details[open] summary::after{content:"▾"}
 #m{white-space:pre-wrap;word-break:break-word;text-align:center;min-height:24px}
 </style>
 </head>
@@ -28,14 +32,19 @@ button:disabled{opacity:.4}
 <main>
 <a href="./" style="display:inline-block;padding:4px 2px;color:var(--pri);text-decoration:none">← 学習ルーレットに戻る</a>
 <h1>🔧 サイト管理</h1>
-<div class="card">
-<label for="tk" style="margin-top:0">管理者トークン</label>
+<details class="card" id="dt">
+<summary><span>⚙ トークン・リポジトリ設定</span><span id="ds" class="mu" style="margin-left:auto"></span></summary>
+<label for="tk">管理者トークン</label>
 <input id="tk" type="password" autocomplete="current-password" placeholder="github_pat_...">
 <div class="row"><label style="margin:0;font-weight:400"><input id="sv" type="checkbox" checked style="width:auto"> この端末に保存</label><button id="lo">トークンを削除</button></div>
 <label for="rp">リポジトリ（ユーザー名/リポジトリ名）</label>
 <input id="rp">
-<label for="fp">更新するファイル</label>
-<input id="fp">
+</details>
+<div class="card">
+<label for="fs" style="margin-top:0">更新するファイル</label>
+<select id="fs"></select>
+<input id="fp" placeholder="新しいファイル名（例: new.html）" style="display:none;margin-top:8px">
+<p class="mu" style="margin:6px 0 0">コードを貼ると、タイトルから更新先を自動で選びます。</p>
 </div>
 <div class="card">
 <div class="l" style="margin-top:0">コード</div>
@@ -56,19 +65,24 @@ const $=s=>document.querySelector(s);
 const gs=k=>{try{return localStorage.getItem('adm_'+k)||''}catch(e){return ''}};
 const ss=(k,v)=>{try{v?localStorage.setItem('adm_'+k,v):localStorage.removeItem('adm_'+k)}catch(e){}};
 const say=(t,c)=>{const m=$('#m');m.textContent=t;m.style.color=c||'var(--mu)'};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const b64=s=>{const u=new TextEncoder().encode(s);let b='';for(let i=0;i<u.length;i+=8192)b+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(b)};
 const ub64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt(0)));
-const nr=()=>$('#rp').value.trim().replace(/^\/+|\/+$/g,''),nf=()=>$('#fp').value.trim().replace(/^\/+/,'');
+const ttl=s=>{const m=s.match(/<title>([\s\S]*?)<\/title>/i);return m?m[1].trim():''};
+const nr=()=>$('#rp').value.trim().replace(/^\/+|\/+$/g,'');
+const nf=()=>($('#fs').value==='__new'?$('#fp').value:$('#fs').value).trim().replace(/^\/+/,'');
 const ERR=e=>e.status===401?'トークンが正しくないか、期限切れです':(e.status===403||e.status===404)?'権限がありません。トークンの対象リポジトリと「Contents: Read and write」権限、リポジトリ名・ファイル名を確認してください':(e.status===409||e.status===422)?'ファイルが他で更新されています。「現在のコードを読み込む」からやり直してください':'エラー: '+e.message;
-let arm=0;
+let FILES=[],TT={},arm=0,ca=0,dt;
 const rst=()=>{arm=0;$('#go').textContent='🚀 更新する'};
+const rc=()=>{ca=0;$('#cl').textContent='🗑 全削除'};
+const hd=t=>Object.assign({Accept:'application/vnd.github+json','Content-Type':'application/json'},t?{Authorization:'Bearer '+t}:{});
 function cfg(){
   const t=$('#tk').value.trim(),r=nr(),f=nf();
   if(!t||!/^[^/\s]+\/[^/\s]+$/.test(r)||!f){say('トークン・リポジトリ・ファイル名を入力してください','var(--ng)');return null}
   return{t,r,f};
 }
 async function api(c,method,body){
-  const res=await fetch('https://api.github.com/repos/'+c.r+'/contents/'+c.f.split('/').map(encodeURIComponent).join('/')+(method==='GET'?'?ref=main':''),{method:method,cache:'no-store',headers:{Authorization:'Bearer '+c.t,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const res=await fetch('https://api.github.com/repos/'+c.r+'/contents/'+c.f.split('/').map(encodeURIComponent).join('/')+(method==='GET'?'?ref=main':''),{method:method,cache:'no-store',headers:hd(c.t),body:body?JSON.stringify(body):undefined});
   let j={};try{j=await res.json()}catch(e){}
   if(!res.ok){const e=new Error(j.message||res.status);e.status=res.status;throw e}
   return j;
@@ -86,8 +100,48 @@ function chk(f,s){
   }
   return '';
 }
-$('#tk').value=gs('tk');$('#rp').value=gs('rp')||'yamimushi9-tech/study-roulette';$('#fp').value=gs('fp')||'index.html';
-let ca=0;const rc=()=>{ca=0;$('#cl').textContent='🗑 全削除'};
+function build(sel){
+  const s=$('#fs');
+  FILES=[...new Set(FILES)].sort((a,b)=>(/\.html?$/i.test(b)-/\.html?$/i.test(a))||a.localeCompare(b));
+  s.innerHTML=FILES.map(f=>'<option value="'+esc(f)+'">'+esc(f)+'</option>').join('')+'<option value="__new">＋ 新しいファイル名を入力</option>';
+  s.value=(sel==='__new'||FILES.includes(sel))?sel:FILES[0];
+  $('#fp').style.display=s.value==='__new'?'block':'none';
+}
+const setF=n=>{if(n!=='__new'&&!FILES.includes(n))FILES.push(n);build(n)};
+function detect(){
+  const t=ttl($('#cd').value);if(!t)return;
+  const hit=Object.keys(TT).filter(f=>TT[f].title===t);
+  if(hit.length===1&&nf()!==hit[0]){setF(hit[0]);say('タイトルから更新先を '+hit[0]+' に自動で選びました')}
+}
+async function refresh(){
+  const r=nr();if(!/^[^/\s]+\/[^/\s]+$/.test(r))return;
+  const t=$('#tk').value.trim(),keep=nf()||gs('fp');
+  try{
+    const res=await fetch('https://api.github.com/repos/'+r+'/contents?ref=main',{cache:'no-store',headers:hd(t)});
+    if(!res.ok)return;
+    const L=(await res.json()).filter(x=>x.type==='file'&&/\.(html?|js|json|css|txt|md|xml|svg|webmanifest)$/i.test(x.name));
+    let old={};try{old=JSON.parse(gs('tt_'+r)||'{}')}catch(e){}
+    TT={};FILES=L.map(x=>x.name);
+    build(FILES.includes(keep)?keep:(FILES.includes('index.html')?'index.html':FILES[0]));
+    for(const x of L){
+      if(!/\.html?$/i.test(x.name))continue;
+      if(old[x.name]&&old[x.name].sha===x.sha){TT[x.name]=old[x.name];continue}
+      try{const j=await api({t:t,r:r,f:x.name},'GET');TT[x.name]={sha:x.sha,title:ttl(ub64(j.content))}}catch(e){}
+    }
+    ss('tt_'+r,JSON.stringify(TT));
+  }catch(e){}
+}
+$('#tk').value=gs('tk');$('#rp').value=gs('rp')||'yamimushi9-tech/study-roulette';
+const st=()=>{$('#ds').textContent=$('#tk').value.trim()?'✅ 設定済み':'⚠ トークン未入力'};
+st();if(!$('#tk').value.trim())$('#dt').open=true;
+$('#tk').addEventListener('input',st);
+FILES=[gs('fp')||'index.html','index.html','admin.html'];build(gs('fp')||'index.html');
+try{TT=JSON.parse(gs('tt_'+nr())||'{}')}catch(e){TT={}}
+refresh();
+$('#rp').addEventListener('change',refresh);
+$('#tk').addEventListener('change',refresh);
+$('#fs').addEventListener('change',()=>{$('#fp').style.display=$('#fs').value==='__new'?'block':'none'});
+$('#cd').addEventListener('input',()=>{clearTimeout(dt);dt=setTimeout(detect,300)});
 document.addEventListener('input',()=>{rst();rc()});
 document.addEventListener('click',e=>{if(e.target.id!=='cl')rc()});
 $('#cl').onclick=()=>{
@@ -95,8 +149,13 @@ $('#cl').onclick=()=>{
   if(!ca){ca=1;$('#cl').textContent='もう一度押すと全削除';return}
   $('#cd').value='';rc();rst();say('コード欄を全削除しました');
 };
-$('#lo').onclick=()=>{ss('tk','');$('#tk').value='';say('この端末のトークンを削除しました')};
-$('#fl').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#cd').value=await f.text();say(f.name+' を読み込みました');e.target.value=''};
+$('#lo').onclick=()=>{ss('tk','');$('#tk').value='';st();say('この端末のトークンを削除しました')};
+$('#fl').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  $('#cd').value=await f.text();e.target.value='';rst();
+  if(FILES.includes(f.name)){setF(f.name);say(f.name+' を読み込み、更新先に選びました')}
+  else{say(f.name+' を読み込みました');detect()}
+};
 $('#pv').onclick=()=>{const p=gs('prev_'+nr()+'/'+nf());if(!p)return say('この端末には直前の版が保存されていません','var(--ng)');$('#cd').value=p;say('直前の版を入力欄に入れました。「更新する」で元に戻せます')};
 $('#ld').onclick=async()=>{
   const c=cfg();if(!c)return;say('読み込み中…');
@@ -106,7 +165,12 @@ $('#go').onclick=async()=>{
   const c=cfg();if(!c)return;const code=$('#cd').value;
   if(!code.trim())return say('コードを貼り付けてください','var(--ng)');
   const bad=chk(c.f,code);if(bad)return say(bad,'var(--ng)');
-  if(!arm){arm=1;$('#go').textContent='もう一度押すと '+c.f+' を更新します';return}
+  if(!arm){
+    arm=1;$('#go').textContent='もう一度押すと '+c.f+' を更新します';
+    const o=TT[c.f],nt=ttl(code);
+    if(o&&o.title&&nt&&o.title!==nt)say('⚠ 今の '+c.f+' とタイトルが違います（'+o.title+' → '+nt+'）。別のページを上書きしようとしていませんか？','var(--ng)');
+    return;
+  }
   rst();$('#go').disabled=true;say('更新中…');
   try{
     let sha,old='';
@@ -114,6 +178,8 @@ $('#go').onclick=async()=>{
     const r=await api(c,'PUT',{message:'管理ページから更新',content:b64(code),sha:sha,branch:'main'});
     if(old)ss('prev_'+c.r+'/'+c.f,old);
     ss('tk',$('#sv').checked?c.t:'');ss('rp',c.r);ss('fp',c.f);
+    if(/\.html?$/i.test(c.f)){TT[c.f]={sha:r.content.sha,title:ttl(code)};ss('tt_'+c.r,JSON.stringify(TT))}
+    setF(c.f);
     say((sha?'✅ 更新しました':'✅ 新しく作成しました')+'（'+r.commit.sha.slice(0,7)+'）\n反映まで1〜2分かかります','var(--ok)');
   }catch(e){say(ERR(e),'var(--ng)')}
   $('#go').disabled=false;
