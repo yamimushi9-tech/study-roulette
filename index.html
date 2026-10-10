@@ -64,6 +64,18 @@ h3{margin:18px 2px 8px;font-size:15px}
 .fx{font-weight:700;color:var(--C);border-color:var(--C)}
 .fx.ok{background:var(--A);border-color:var(--A);color:var(--pt)}
 .dl.arm{color:var(--D);border-color:var(--D)}
+#one{margin-top:22px;scroll-margin-top:72px}
+.cdp{min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
+.cx{font-size:32px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
+.cr{font-size:18px;color:var(--mu);min-height:26px;margin-top:4px;font-variant-numeric:tabular-nums}
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kp button{padding:0;height:58px;font-size:22px;font-weight:700;border-radius:14px;user-select:none;-webkit-user-select:none}
+.kp .op{color:var(--pri);border-color:var(--pri)}
+.kp .ac{color:var(--D);border-color:var(--D)}
+.kp .eq{grid-column:1/-1;background:var(--pri);color:var(--pt);border-color:var(--pri)}
+.hi{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin-bottom:6px;padding:10px 12px;text-align:left}
+.hx{color:var(--mu);font-size:13px;word-break:break-all}
+.hv{font-weight:800;white-space:nowrap}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
 </style>
 </head>
@@ -71,7 +83,7 @@ h3{margin:18px 2px 8px;font-size:15px}
 <nav id="nav">
   <button data-tab="roulette">🎯<br>ルーレット</button>
   <button data-tab="rev">📚<br>復習</button>
-  <button data-tab="one">🔍<br>個別</button>
+  <button data-tab="calc">🧮<br>電卓</button>
   <button data-tab="class">📊<br>分類</button>
   <button data-tab="log">📖<br>記録</button>
   <button data-tab="set">⚙<br>設定</button>
@@ -79,8 +91,8 @@ h3{margin:18px 2px 8px;font-size:15px}
 <main id="app"></main>
 <script>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
-const D0=()=>({parts:DP.slice(),used:[],rated:{},log:[],act:null});
-let S=D0(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''];
+const D0=()=>({parts:DP.slice(),used:[],rated:{},log:[],act:null,calc:{hist:[]}});
+let S=D0(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false;
 try{const j=localStorage.getItem(K);if(j)S=Object.assign(S,JSON.parse(j))}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -99,10 +111,10 @@ function setupForm(t){
 function vRoulette(){
   const p=pool(),T=total(),done=T-p.length;
   let h=`<div class="card"><div class="row"><span>未修 <b>${p.length}</b> / ${T} 問</span><span class="mu">${Math.round(done/T*100)}% 完了</span></div><div class="bar"><i style="width:${done/T*100}%"></i></div></div>`;
-  if(S.act)return h+(S.act.rv?'<div class="card c mu">📚 復習中です。「復習」タブで続けてください</div>':vSession());
+  if(S.act)return h+(S.act.rv?'<div class="card c mu">📚 復習中です。「復習」タブで続けてください</div>':vSession())+vOne();
   h+=`<div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="spin" ${p.length?'':'disabled'}>🎯 ルーレットを回す</button>`;
   if(!p.length)h+='<p class="c mu">全問題を一巡しました 🎉</p>';
-  return h;
+  return h+vOne();
 }
 function vRev(){
   if(S.act)return S.act.rv?vSession():'<div class="card c mu">🎯 ルーレット中です。完了してから復習できます</div>';
@@ -148,9 +160,110 @@ function vLog(){
 function vSet(){
   return setupForm('各部の問題数')+`<div class="card"><label>💾 バックアップ</label><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></div><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
 }
+const OPS='+−×÷',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.']];
+const hist=()=>{if(!S.calc||!Array.isArray(S.calc.hist))S.calc={hist:[]};return S.calc.hist};
+const grp=s=>s.replace(/(\d+)(\.\d*)?/g,(m,a,b)=>a.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(b||''));
+function evalS(s){
+  let i=0;
+  const bad=()=>{throw new Error('x')};
+  function ex(){
+    let l=tm().v;
+    while(s[i]==='+'||s[i]==='−'){const o=s[i++],r=tm(),rv=r.p?l*r.v:r.v;l=o==='+'?l+rv:l-rv}
+    return l;
+  }
+  function tm(){
+    const f=fc();let v=f.v,n=0;
+    while(s[i]==='×'||s[i]==='÷'){
+      const o=s[i++],g=fc();n++;
+      if(o==='×')v*=g.v;else{if(g.v===0)throw new Error('div');v/=g.v}
+    }
+    return{v:v,p:f.p&&!n};
+  }
+  function fc(){
+    if(s[i]==='−'){i++;const f=fc();return{v:-f.v,p:f.p}}
+    if(s[i]==='+'){i++;return fc()}
+    let v,p=false;
+    if(s[i]==='('){i++;v=ex();if(s[i]!==')')bad();i++}
+    else{const m=/^(\d+\.?\d*|\.\d+)/.exec(s.slice(i));if(!m)bad();v=parseFloat(m[1]);i+=m[1].length}
+    while(s[i]==='%'){i++;v/=100;p=true}
+    return{v:v,p:p};
+  }
+  const v=ex();if(i!==s.length)bad();return v;
+}
+function fmtR(v){
+  if(!isFinite(v)||Math.abs(v)>=1e15)throw new Error('big');
+  let t=String(Number(v.toPrecision(12)));
+  if(/e/i.test(t))t=Math.abs(v)<1e-9?'0':v.toFixed(12).replace(/\.?0+$/,'');
+  return t.replace('-','−');
+}
+function norm(e){e=e.replace(/[+−×÷.]+$/,'');const o=(e.match(/\(/g)||[]).length,c=(e.match(/\)/g)||[]).length;return e+')'.repeat(Math.max(0,o-c))}
+const hasOp=e=>/[+−×÷()%]/.test(e.replace(/^−/,''));
+function cUp(){
+  const x=$('#cx'),r=$('#cr');if(!x)return;
+  const t=cE?grp(cE):'0';
+  x.textContent=t;x.style.fontSize=t.length>26?'18px':t.length>16?'23px':'';
+  let p='';
+  if(!cMsg&&!cDone&&cE){const e=norm(cE);if(hasOp(e)){try{p='= '+grp(fmtR(evalS(e)))}catch(er){}}}
+  r.textContent=cMsg||p;r.style.color=cMsg?'var(--D)':'';
+}
+function cEq(){
+  const e=norm(cE);if(!e)return;
+  try{
+    const r=fmtR(evalS(e));
+    if(hasOp(e)){const H=hist();H.unshift({e:e,r:r});H.length=Math.min(H.length,30);save()}
+    cE=r;cDone=true;
+  }catch(er){cMsg=er.message==='div'?'0では割れません':er.message==='big'?'桁があふれました':'式が正しくありません'}
+}
+function cKey(k){
+  cMsg='';
+  if(k==='AC'){cE='';cDone=false;return cUp()}
+  if(k==='BS'){cE=cE.slice(0,-1);cDone=false;return cUp()}
+  if(k==='='){cEq();return cUp()}
+  if(cE.length>=100){cMsg='これ以上入力できません';return cUp()}
+  if(/^\d$/.test(k)||k==='.'||k==='('){if(cDone){cE='';cDone=false}}
+  else cDone=false;
+  const l=cE.slice(-1),cur=(cE.match(/[\d.]*$/)||[''])[0];
+  if(/^\d$/.test(k)){
+    if(l===')'||l==='%')cE+='×';
+    else if(cur.replace('.','').length>=15)return cUp();
+    else if(cur==='0')cE=cE.slice(0,-1);
+    cE+=k;
+  }
+  else if(k==='.'){
+    if(cur.includes('.'))return cUp();
+    if(l===')'||l==='%')cE+='×0.';else cE+=cur?'.':'0.';
+  }
+  else if(k==='('){if(/[\d.)%]$/.test(cE))cE+='×';cE+='('}
+  else if(k===')'){const o=(cE.match(/\(/g)||[]).length,c=(cE.match(/\)/g)||[]).length;if(o>c&&/[\d.)%]$/.test(cE))cE+=')'}
+  else if(k==='%'){if(/[\d)%]$/.test(cE))cE+='%'}
+  else if(OPS.includes(k)){
+    if(!cE){if(k==='−')cE='−'}
+    else if(OPS.includes(l)){
+      if(k==='−'&&(l==='×'||l==='÷'))cE+=k;
+      else{const b=cE.replace(/[+−×÷]+$/,'');cE=b?b+k:(k==='−'?'−':'')}
+    }
+    else if(l==='('){if(k==='−')cE+=k}
+    else cE+=k;
+  }
+  cUp();
+}
+function cIns(r){
+  cMsg='';
+  if(!cE||cDone){cE=r;cDone=true}
+  else if(/[+−×÷(]$/.test(cE))cE+=r;
+  else{cE=r;cDone=true}
+  cUp();
+}
+function vCalc(){
+  const H=hist();
+  let h='<div class="card cdp"><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  if(H.length)h+=`<div class="row" style="margin:18px 2px 8px"><b>履歴</b><button class="dl${cArm?' arm':''}" id="chc">${cArm?'もう一度押すと全削除':'🗑 履歴を消す'}</button></div>`+H.map((x,i)=>`<button class="hi" data-h="${i}"><span class="hx">${esc(grp(x.e))} =</span><span class="hv">${esc(grp(x.r))}</span></button>`).join('');
+  return h;
+}
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  $('#app').innerHTML={roulette:vRoulette,rev:vRev,one:vOne,class:vClass,log:vLog,set:vSet}[tab]();
+  $('#app').innerHTML={roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,set:vSet}[tab]();
+  if(tab==='calc')cUp();
 }
 function spin(rv){
   const p=rv?cdList():pool();if(!p.length||spinning)return;
@@ -188,26 +301,28 @@ function vOne(){
     }
     h+='</div>';
   }
-  return h+`<p class="mu c">${esc(sMsg)}</p>`;
+  return '<div id="one">'+h+`<p class="mu c">${esc(sMsg)}</p></div>`;
 }
+const scOne=()=>{const e=$('#one');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})};
+function rdOne(){render();scOne()}
 function schOne(){
   const a=$('#ip').value,b=$('#iq').value,p=parseInt(a,10),q=parseInt(b,10);
   sIn=[a,b];sC='';sR='';
-  if(!(p>=1&&p<=S.parts.length)){sId=0;sMsg='部は1〜'+S.parts.length+'で入力してください';return render()}
-  if(!(q>=1&&q<=S.parts[p-1])){sId=0;sMsg='第'+p+'部は1〜'+S.parts[p-1]+'問です';return render()}
-  sId=p*1000+q;sMsg='';render();
+  if(!(p>=1&&p<=S.parts.length)){sId=0;sMsg='部は1〜'+S.parts.length+'で入力してください';return rdOne()}
+  if(!(q>=1&&q<=S.parts[p-1])){sId=0;sMsg='第'+p+'部は1〜'+S.parts[p-1]+'問です';return rdOne()}
+  sId=p*1000+q;sMsg='';rdOne();
 }
 function recOne(id,g){
   S.log.push({ts:Date.now(),nums:[id],r:{[id]:g},ms:0,one:1,c:sC.trim()});
   if(!S.used.includes(id))S.used.push(id);
-  S.rated[id]=g;sMsg=lab(id)+' を '+g+' で記録しました（記録ページに追加）';sC='';sR='';sId=0;sIn=['',''];save();render();window.scrollTo(0,0);
+  S.rated[id]=g;sMsg=lab(id)+' を '+g+' で記録しました（記録ページに追加）';sC='';sR='';sId=0;sIn=['',''];save();rdOne();
 }
 function delOne(id){
   S.log.forEach(x=>{if(x.nums.includes(id)){x.nums=x.nums.filter(n=>n!==id);delete x.r[id]}});
   S.log=S.log.filter(x=>x.nums.length);
   S.used=S.used.filter(n=>n!==id);
   S.rated={};S.log.forEach(x=>x.nums.forEach(n=>S.rated[n]=x.r[n]));
-  sMsg=lab(id)+' を未修に戻しました';save();render();
+  sMsg=lab(id)+' を未修に戻しました';save();rdOne();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'||e.target.id==='iq'))schOne()});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
@@ -215,6 +330,9 @@ $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)g
 $('#app').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
+  if(b.dataset.k){if(cArm){cArm=false;render()}cKey(b.dataset.k);return}
+  if(b.dataset.h!==undefined){const it=hist()[+b.dataset.h];if(it){cIns(it.r);window.scrollTo({top:0,behavior:'smooth'})}return}
+  if(id==='chc'){if(!cArm){cArm=true;render();return}cArm=false;S.calc.hist=[];save();render();return}
   if(b.dataset.del){const ts=+b.dataset.del;if(delArm!==ts){delArm=ts;render();return}delArm=null;delRec(ts);return}
   if(b.dataset.sd){const k='p'+sId;if(delArm!==k){delArm=k;render();return}delArm=null;delOne(sId);return}
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
@@ -255,7 +373,7 @@ $('#app').addEventListener('click',e=>{
     catch(x){say('#bmsg','復元できませんでした。バックアップ全体を貼り付けてください')}
   }
 });
-document.addEventListener('input',e=>{if(e.target.id==='scm')sC=e.target.value;if(e.target.id==='cm'&&S.act){S.act.comment=e.target.value;save()}});
+document.addEventListener('input',e=>{if(e.target.id==='ip')sIn[0]=e.target.value;if(e.target.id==='iq')sIn[1]=e.target.value;if(e.target.id==='scm')sC=e.target.value;if(e.target.id==='cm'&&S.act){S.act.comment=e.target.value;save()}});
 let dg=null;
 const pt=e=>e.touches?(e.touches[0]||e.changedTouches[0]):e;
 const tgtAt=(x,y)=>{const e=document.elementFromPoint(x,y);return e&&e.closest('.gh')};
@@ -306,10 +424,10 @@ document.addEventListener('mousemove',dMove);
 document.addEventListener('touchend',dEnd);
 document.addEventListener('mouseup',dEnd);
 document.addEventListener('touchcancel',dCancel);
-const TABS=['roulette','rev','one','class','log','set'];
+const TABS=['roulette','rev','calc','class','log','set'];
 function go(t){
   const o=TABS.indexOf(tab),n=TABS.indexOf(t);
-  tab=t;delArm=null;render();window.scrollTo(0,0);
+  tab=t;delArm=null;cArm=false;render();window.scrollTo(0,0);
   const a=$('#app');a.style.setProperty('--sx',(n>o?40:-40)+'px');a.style.animation='none';a.offsetWidth;a.style.animation='sl .22s ease-out';
 }
 let sw=null,swBlock=false;
