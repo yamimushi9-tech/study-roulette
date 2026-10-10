@@ -146,7 +146,7 @@ function vLog(){
   }).join('');
 }
 function vSet(){
-  return setupForm('各部の問題数')+`<div class="card"><label>💾 バックアップ</label><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></div>`;
+  return setupForm('各部の問題数')+`<div class="card"><label>💾 バックアップ</label><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></div><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
 }
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
@@ -220,6 +220,7 @@ $('#app').addEventListener('click',e=>{
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
   if(id==='srec'){const t=$('#scm');if(t)sC=t.value;if(!sR){sMsg='A〜Dの評価を選んでください';render();return}recOne(sId,sR);return}
   delArm=null;
+  if(id==='adm'){location.href='admin.html';return}
   if(b.dataset.fx){const r=S.log.find(x=>x.ts===+b.dataset.fx);if(r){r.fx=r.fx?0:1;save()}render();return}
   if(id==='sch')return schOne();
   if(id==='spin')spin();
