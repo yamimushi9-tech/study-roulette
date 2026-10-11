@@ -70,7 +70,7 @@ h3{margin:18px 2px 8px;font-size:15px}
 .bks{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 14px}
 .bk{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px}
 .bk.on{background:var(--pri);color:var(--pt);border-color:var(--pri)}
-.cdp{min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
+.cdp{position:relative;padding-top:40px;min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
 .cx{font-size:32px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
 .cr{font-size:18px;color:var(--mu);min-height:26px;margin-top:4px;font-variant-numeric:tabular-nums}
 .kp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -78,6 +78,8 @@ h3{margin:18px 2px 8px;font-size:15px}
 .kp .op{color:var(--pri);border-color:var(--pri)}
 .kp .ac{color:var(--D);border-color:var(--D)}
 .kp .eq{grid-column:1/-1;background:var(--pri);color:var(--pt);border-color:var(--pri)}
+.hb{position:absolute;left:10px;top:10px;padding:4px 12px;font-size:13px;font-weight:700;border-radius:999px;color:var(--pri);border-color:var(--pri);background:transparent}
+.hl{max-height:50vh;overflow-y:auto;margin-bottom:6px}
 .hi{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin-bottom:6px;padding:10px 12px;text-align:left}
 .hx{color:var(--mu);font-size:13px;word-break:break-all}
 .hv{font-weight:800;white-space:nowrap}
@@ -91,11 +93,11 @@ details.card[open]>summary{margin-bottom:10px}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @keyframes pop{0%{transform:scale(.8)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
 .bk.pop{animation:pop .38s ease-out}
-#mdl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12vh) 20px 20px;opacity:0;transition:opacity .18s}
-#mdl[hidden]{display:none}
-#mdl.show{opacity:1}
+#mdl,#hdl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12vh) 20px 20px;opacity:0;transition:opacity .18s}
+#mdl[hidden],#hdl[hidden]{display:none}
+#mdl.show,#hdl.show{opacity:1}
 .mbox{width:100%;max-width:420px;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.45);transform:translateY(14px) scale(.96);transition:transform .2s}
-#mdl.show .mbox{transform:none}
+#mdl.show .mbox,#hdl.show .mbox{transform:none}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:17px}
 .mh button{padding:4px 12px}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
@@ -120,6 +122,14 @@ details.card[open]>summary{margin-bottom:10px}
     <p class="mu" style="margin:8px 0 0">各部の問題数は、第1部から順にカンマ区切りで入力します。</p>
     <p class="mu" id="amsg" style="min-height:20px;margin:6px 0 0"></p>
     <button id="nadd" class="pri w">追加して切り替える</button>
+  </div>
+</div>
+<div id="hdl" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="ht">
+    <div class="mh"><b id="ht">🕘 計算履歴</b><button id="hx" class="ghost" aria-label="閉じる">✕</button></div>
+    <p class="mu" style="margin:0 0 8px">タップすると、その答えを電卓に入れます。</p>
+    <div id="hlist" class="hl"></div>
+    <button id="hclr" class="ghost w">🗑 履歴を消す</button>
   </div>
 </div>
 <script>
@@ -149,6 +159,7 @@ function mkS(src){
   return o;
 }
 let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false;
+try{logF=!!JSON.parse(localStorage.getItem('studylog_ui')||'{}').logF}catch(e){}
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -237,20 +248,29 @@ function setBook(id){
   save();render();popId='';
   anim(n>o?1:-1,70,.34);toast('📘 '+curBook().name+' に切り替えました');
 }
-let mt;
+function pOpen(m){clearTimeout(m._t);m.hidden=false;m.offsetWidth;m.classList.add('show');document.body.style.overflow='hidden'}
+function pClose(m){if(m.hidden)return;m.classList.remove('show');document.body.style.overflow='';clearTimeout(m._t);m._t=setTimeout(()=>{m.hidden=true},180)}
 function openAdd(){
-  clearTimeout(mt);
-  const m=$('#mdl');$('#nn').value='';$('#np').value='';
+  $('#nn').value='';$('#np').value='';
   const e=$('#amsg');e.textContent='';e.style.color='';
-  m.hidden=false;m.offsetWidth;m.classList.add('show');
-  document.body.style.overflow='hidden';
-  $('#nn').focus();
+  pOpen($('#mdl'));$('#nn').focus();
 }
-function closeAdd(){
-  const m=$('#mdl');if(m.hidden)return;
-  m.classList.remove('show');document.body.style.overflow='';
-  clearTimeout(mt);mt=setTimeout(()=>{m.hidden=true},180);
+function closeAdd(){pClose($('#mdl'))}
+function renderHist(){
+  const H=hist(),c=$('#hclr');
+  $('#hlist').innerHTML=H.length?H.map((x,i)=>`<button class="hi" data-h="${i}"><span class="hx">${esc(grp(x.e))} =</span><span class="hv">${esc(grp(x.r))}</span></button>`).join(''):'<p class="mu c" style="margin:18px 0">まだ計算履歴がありません。<br>「＝」を押した計算が、ここに残ります。</p>';
+  c.hidden=!H.length;c.textContent=cArm?'もう一度押すと全削除':'🗑 履歴を消す';
+  c.style.color=cArm?'var(--D)':'';c.style.borderColor=cArm?'var(--D)':'';
 }
+function openHist(){cArm=false;renderHist();pOpen($('#hdl'))}
+function closeHist(){cArm=false;pClose($('#hdl'))}
+$('#hdl').addEventListener('click',e=>{
+  if(e.target.id==='hdl')return closeHist();
+  const b=e.target.closest('button');if(!b)return;
+  if(b.id==='hx')closeHist();
+  else if(b.id==='hclr'){if(!cArm){cArm=true;renderHist();return}cArm=false;S.calc.hist=[];save();renderHist();render()}
+  else if(b.dataset.h!==undefined){const it=hist()[+b.dataset.h];if(it){cIns(it.r);closeHist()}}
+});
 function addBook(){
   const n=$('#nn').value.trim(),P=parseParts($('#np').value),e=$('#amsg');
   const bad=t=>{e.textContent=t;e.style.color='var(--D)'};
@@ -266,7 +286,7 @@ $('#mdl').addEventListener('click',e=>{
   if(b.id==='mx')closeAdd();else if(b.id==='nadd')addBook();
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape')closeAdd();
+  if(e.key==='Escape'){closeAdd();closeHist()}
   else if(e.key==='Enter'&&(e.target.id==='nn'||e.target.id==='np'))addBook();
 });
 function delBook(){
@@ -380,8 +400,7 @@ function cIns(r){
 }
 function vCalc(){
   const H=hist();
-  let h='<div class="card cdp"><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
-  if(H.length)h+=`<div class="row" style="margin:18px 2px 8px"><b>履歴</b><button class="dl${cArm?' arm':''}" id="chc">${cArm?'もう一度押すと全削除':'🗑 履歴を消す'}</button></div>`+H.map((x,i)=>`<button class="hi" data-h="${i}"><span class="hx">${esc(grp(x.e))} =</span><span class="hv">${esc(grp(x.r))}</span></button>`).join('');
+  let h='<div class="card cdp"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
   return h;
 }
 function render(){
@@ -459,16 +478,15 @@ $('#app').addEventListener('click',e=>{
   if(id==='bdel'){if(!bkArm){bkArm=true;render();return}delBook();return}
   if(bkArm){bkArm=false;const bd=$('#bdel');if(bd){bd.textContent='削除する';bd.style.cssText=''}}
   if(id==='bren'){const v=$('#bname').value.trim();if(!v)return say('#rmsg','教材名を入力してください');curBook().name=v.slice(0,30);save();render();toast('✅ 名前を保存しました');return}
-  if(b.dataset.k){if(cArm){cArm=false;render()}cKey(b.dataset.k);return}
-  if(b.dataset.h!==undefined){const it=hist()[+b.dataset.h];if(it){cIns(it.r);window.scrollTo({top:0,behavior:'smooth'})}return}
-  if(id==='chc'){if(!cArm){cArm=true;render();return}cArm=false;S.calc.hist=[];save();render();return}
+  if(b.dataset.k){cKey(b.dataset.k);return}
+  if(id==='hbtn'){openHist();return}
   if(b.dataset.del){const ts=+b.dataset.del;if(delArm!==ts){delArm=ts;render();return}delArm=null;delRec(ts);return}
   if(b.dataset.sd){const k='p'+sId;if(delArm!==k){delArm=k;render();return}delArm=null;delOne(sId);return}
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
   if(id==='srec'){const t=$('#scm');if(t)sC=t.value;if(!sR){sMsg='A〜Dの評価を選んでください';render();return}recOne(sId,sR);return}
   delArm=null;
   if(id==='adm'){location.href='admin.html';return}
-  if(id==='lf'){logF=!logF;render();return}
+  if(id==='lf'){logF=!logF;try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF}))}catch(e){}render();return}
   if(b.dataset.fx){const r=S.log.find(x=>x.ts===+b.dataset.fx);if(r){r.fx=r.fx?0:1;save();if(logF&&r.fx)toast('✅ 対策済みにしました')}render();return}
   if(id==='sch')return schOne();
   if(id==='spin')spin();
@@ -493,6 +511,8 @@ $('#app').addEventListener('click',e=>{
     const P=$('#tot').value.split(/[,、，\s]+/).filter(x=>x).map(x=>parseInt(x,10));
     if(!P.length||P.some(x=>!(x>=1)))return say('#smsg','1以上の数をカンマ区切りで入力してください');
     S.parts=P;save();render();
+    const m=$('#smsg');if(m){m.textContent='✅ 保存しました（'+P.length+'部・計'+P.reduce((x,y)=>x+y,0)+'問）';m.style.color='var(--A)'}
+    toast('✅ 保存しました');
   }
   else if(id==='bcp'){
     const t=$('#bk');t.value=JSON.stringify(S);t.select();
@@ -563,7 +583,7 @@ function go(t){
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,#mdl'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,#mdl,#hdl'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
