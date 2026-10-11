@@ -64,6 +64,8 @@ h3{margin:18px 2px 8px;font-size:15px}
 .fx{font-weight:700;color:var(--C);border-color:var(--C)}
 .fx.ok{background:var(--A);border-color:var(--A);color:var(--pt)}
 .dl.arm{color:var(--D);border-color:var(--D)}
+.lf{font-weight:700;color:var(--C);border-color:var(--C);background:transparent;padding:8px 16px;border-radius:999px;font-size:14px}
+.lf.on{background:var(--C);color:var(--pt)}
 #one{margin-top:22px;scroll-margin-top:72px}
 .bks{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 14px}
 .bk{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px}
@@ -146,7 +148,7 @@ function mkS(src){
   if(!o.calc||typeof o.calc!=='object')o.calc={hist:[]};
   return o;
 }
-let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt;
+let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false;
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -193,6 +195,7 @@ function vClass(){
   });
   return h;
 }
+const pend=s=>s.c&&!s.mv&&!s.fx;
 function vLog(){
   if(!S.log.length)return '<p class="mu c">まだ記録がありません。ルーレットを回して解いてみよう！</p>';
   const days={},order=[];
@@ -201,15 +204,20 @@ function vLog(){
     if(!days[k]){days[k]=[];order.push(k)}
     days[k].push(s);
   });
-  return '<p class="mu">表記は「部-問」（例: 8-15 = 第8部の15問目）</p>'+order.map(k=>{
-    const L=days[k],ms=L.reduce((t,s)=>t+s.ms,0),cnt=L.reduce((t,s)=>t+(s.mv?0:s.nums.length),0);
+  const np=S.log.filter(pend).length;
+  const bar=`<div class="row" style="justify-content:flex-start;margin-bottom:10px"><button id="lf" class="lf${logF?' on':''}">⚠ 未対策のみ <b>${np}</b></button>${logF?'<span class="mu">絞り込み中</span>':''}</div>`;
+  const body=order.map(k=>{
+    const full=days[k],L=logF?full.filter(pend):full;
+    if(!L.length)return '';
+    const ms=L.reduce((t,s)=>t+s.ms,0),cnt=L.reduce((t,s)=>t+(s.mv?0:s.nums.length),0);
     return `<h3 class="row"><span>${k}</span><span class="mu">${cnt}問 / ${fmt(ms)}</span></h3>`+L.map((s,i)=>{
       const tm=new Date(s.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
       const ar=delArm===s.ts,ty=s.mv?'分類変更':s.one?'個別追加':s.rv?'📚復習 ⏱'+fmt(s.ms):'🎯 ⏱'+fmt(s.ms);
       const fx=s.c&&!s.mv?`<button class="fx${s.fx?' ok':''}" data-fx="${s.ts}">${s.fx?'✅ 対策済み':'⚠ 未対策'}</button>`:'';
-      return `<div class="rec"><div class="rl"><div><b>${L.length-i}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div></div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
+      return `<div class="rec"><div class="rl"><div><b>${full.length-full.indexOf(s)}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div></div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
     }).join('');
   }).join('');
+  return bar+'<p class="mu">表記は「部-問」（例: 8-15 = 第8部の15問目）</p>'+(body||(logF?'<p class="mu c">未対策の記録はありません 🎉</p>':''));
 }
 function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1700)}
 function anim(d,px,sec){
@@ -460,7 +468,8 @@ $('#app').addEventListener('click',e=>{
   if(id==='srec'){const t=$('#scm');if(t)sC=t.value;if(!sR){sMsg='A〜Dの評価を選んでください';render();return}recOne(sId,sR);return}
   delArm=null;
   if(id==='adm'){location.href='admin.html';return}
-  if(b.dataset.fx){const r=S.log.find(x=>x.ts===+b.dataset.fx);if(r){r.fx=r.fx?0:1;save()}render();return}
+  if(id==='lf'){logF=!logF;render();return}
+  if(b.dataset.fx){const r=S.log.find(x=>x.ts===+b.dataset.fx);if(r){r.fx=r.fx?0:1;save();if(logF&&r.fx)toast('✅ 対策済みにしました')}render();return}
   if(id==='sch')return schOne();
   if(id==='spin')spin();
   else if(id==='rv')spin(1);
