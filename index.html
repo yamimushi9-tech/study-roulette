@@ -79,6 +79,9 @@ h3{margin:18px 2px 8px;font-size:15px}
 .kp .ac{color:var(--D);border-color:var(--D)}
 .kp .eq{grid-column:1/-1;background:var(--pri);color:var(--pt);border-color:var(--pri)}
 .hb{position:absolute;left:10px;top:10px;padding:4px 12px;font-size:13px;font-weight:700;border-radius:999px;color:var(--pri);border-color:var(--pri);background:transparent}
+.ais{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+.ais a{padding:4px 10px;font-size:12px;font-weight:700;line-height:1.4;border-radius:999px;border:1px solid var(--bd);color:var(--mu);text-decoration:none;background:transparent}
+.ais a:active{background:var(--bd)}
 .hl{max-height:50vh;overflow-y:auto;margin-bottom:6px}
 .hi{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin-bottom:6px;padding:10px 12px;text-align:left}
 .hx{color:var(--mu);font-size:13px;word-break:break-all}
@@ -447,9 +450,16 @@ function cIns(r){
   else{cE=r;cDone=true}
   cUp();
 }
+const AI=[['Gemini','com.google.android.apps.bard','https://gemini.google.com/app'],['ChatGPT','com.openai.chatgpt','https://chatgpt.com/'],['Claude','com.anthropic.claude','https://claude.ai/new']];
+function aiHref(a){
+  const u=a[2];
+  if(!/Android/i.test(navigator.userAgent||''))return `href="${u}" target="_blank" rel="noopener"`;
+  const m=u.match(/^https:\/\/([^/]+)(\/.*)$/);
+  return `href="intent://${m[1]}${m[2]}#Intent;scheme=https;package=${a[1]};S.browser_fallback_url=${encodeURIComponent(u)};end"`;
+}
 function vCalc(){
   const H=hist();
-  let h='<div class="card cdp"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  let h='<div class="card cdp"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a ${aiHref(a)}>${a[0]}</a>`).join('')+'</span><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
   return h;
 }
 function render(){
