@@ -14,7 +14,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;touch-action:pan-y pinch-zoom;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.5}
 main{max-width:560px;margin:0 auto;padding:12px 14px 40px}
 nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;padding:10px 8px;max-width:560px;margin:0 auto}
-nav button{flex:1;min-width:0;padding:8px 0;font-size:10px;line-height:1.35}
+nav button{flex:1;min-width:0;padding:8px 0;font-size:9px;line-height:1.35}
 nav button.on{background:var(--pri);color:var(--pt);border-color:var(--pri)}
 button{font:inherit;cursor:pointer;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:12px 14px}
 button:disabled{opacity:.4}
@@ -45,7 +45,7 @@ button:disabled{opacity:.4}
 .chip{display:inline-block;padding:4px 11px;margin:3px;border-radius:999px;border:1.5px solid var(--c);color:var(--c);font-weight:700}
 .gh{border-left:6px solid var(--c)}
 label{font-weight:700;display:block;margin-bottom:6px}
-textarea,input{width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+textarea,input,select{width:100%;font:inherit;padding:10px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
 h3{margin:18px 2px 8px;font-size:15px}
 .cm{white-space:pre-wrap;margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:10px;font-size:14px}
 .chip[data-id]{touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
@@ -111,6 +111,10 @@ details.card[open]>summary{margin-bottom:10px}
 .sqb.on{background:var(--pri);border-color:var(--pri);color:var(--pt)}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:17px}
 .mh button{padding:4px 12px}
+details.pf>summary{cursor:pointer;font-weight:700}
+.pbig{font-size:34px;font-weight:800;line-height:1.2;font-variant-numeric:tabular-nums}
+.pbig small{font-size:15px;font-weight:700;margin:0 2px}
+.pl.old{opacity:.55}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
 </style>
 </head>
@@ -121,6 +125,7 @@ details.card[open]>summary{margin-bottom:10px}
   <button data-tab="calc">🧮<br>電卓</button>
   <button data-tab="class">📊<br>分類</button>
   <button data-tab="log">📖<br>記録</button>
+  <button data-tab="plan">📅<br>予定表</button>
   <button data-tab="set">⚙<br>設定</button>
 </nav>
 <main id="app"></main>
@@ -130,7 +135,7 @@ details.card[open]>summary{margin-bottom:10px}
     <div class="mh"><b id="mt">＋ 教材を追加</b><button id="mx" class="ghost" aria-label="閉じる">✕</button></div>
     <input id="nn" placeholder="教材名（例: 日本史）" maxlength="30">
     <input id="np" placeholder="各部の問題数（例: 20,20,15）" style="margin-top:8px">
-    <p class="mu" style="margin:8px 0 0">各部の問題数は、第1部から順にカンマ区切りで入力します。</p>
+    <p class="mu" style="margin:8px 0 0">第1部から順に入力します。部ごとに1から始まる教材は問題数（例: 8,4,6）、問題番号が全部通しの教材は範囲（例: 1-8,9-20,21-35）で入力します。</p>
     <p class="mu" id="amsg" style="min-height:20px;margin:6px 0 0"></p>
     <button id="nadd" class="pri w">追加して切り替える</button>
   </div>
@@ -158,20 +163,22 @@ details.card[open]>summary{margin-bottom:10px}
 <script>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const newBook=(name,parts)=>({id:uid(),name:name,parts:parts||DP.slice(),used:[],rated:{},log:[],act:null});
+const newBook=(name,parts,st)=>{const b={id:uid(),name:name,parts:parts||DP.slice(),used:[],rated:{},log:[],act:null};if(st)b.st=st;return b};
 const BF=['parts','used','rated','log','act'];
 function mkS(src){
-  const o={books:[newBook('教材1')],cur:'',calc:{hist:[]}};
+  const o={books:[newBook('教材1')],cur:'',calc:{hist:[]},plans:[]};
   o.cur=o.books[0].id;
   const cb=()=>o.books.find(b=>b.id===o.cur)||o.books[0];
   BF.forEach(f=>Object.defineProperty(o,f,{get(){return cb()[f]},set(v){cb()[f]=v}}));
   if(src&&typeof src==='object')Object.assign(o,src);
   o.books=(Array.isArray(o.books)?o.books:[]).filter(b=>b&&typeof b==='object');
   if(!o.books.length)o.books=[newBook('教材1')];
+  if(!Array.isArray(o.plans))o.plans=[];
   o.books.forEach(b=>{
     if(!b.id)b.id=uid();
     b.name=String(b.name||'教材');
     if(!Array.isArray(b.parts)||!b.parts.length)b.parts=DP.slice();
+    if(b.st!=null&&!(Array.isArray(b.st)&&b.st.length===b.parts.length&&b.st.every(x=>Number.isInteger(x)&&x>=1)))delete b.st;
     if(!Array.isArray(b.used))b.used=[];
     if(!b.rated||typeof b.rated!=='object')b.rated={};
     if(!Array.isArray(b.log))b.log=[];
@@ -181,9 +188,9 @@ function mkS(src){
   if(!o.calc||typeof o.calc!=='object')o.calc={hist:[]};
   return o;
 }
-let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false;
-const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab}))}catch(e){}};
-try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;if(['roulette','rev','calc','class','log','set'].includes(u.tab))tab=u.tab}catch(e){}
+let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false,aiSel={},nowFn=()=>new Date(),plN='',plD='';
+const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab,ai:aiSel}))}catch(e){}};
+try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;if(['roulette','rev','calc','class','log','plan','set'].includes(u.tab))tab=u.tab;if(u.ai&&typeof u.ai==='object'&&!Array.isArray(u.ai))aiSel=u.ai}catch(e){}
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -192,14 +199,40 @@ const selA=()=>{const b=curBook(),n=b.parts.length;const s=Array.isArray(b.sel)?
 const pool=all=>{const u=new Set(S.used),a=[],sel=all?null:selA();S.parts.forEach((c,i)=>{if(sel&&!sel.includes(i+1))return;for(let q=1;q<=c;q++){const id=(i+1)*1000+q;if(!u.has(id))a.push(id)}});return a};
 function rng(a){const o=[];let i=0;while(i<a.length){let j=i;while(j+1<a.length&&a[j+1]===a[j]+1)j++;o.push(j-i>=2?a[i]+'〜'+a[j]:a.slice(i,j+1).join('・'));i=j+1}return o.join('・')}
 const total=()=>S.parts.reduce((t,c)=>t+c,0);
-const lab=id=>`第${Math.floor(id/1000)}部 ${id%1000}問目`,sh=id=>Math.floor(id/1000)+'-'+id%1000;
+const stA=()=>{const b=curBook();return Array.isArray(b.st)&&b.st.length===b.parts.length&&b.st.every(x=>Number.isInteger(x)&&x>=1)?b.st:null};
+const num=id=>{const st=stA(),q=id%1000;return st?st[Math.floor(id/1000)-1]+q-1:q};
+const lab=id=>stA()?`第${Math.floor(id/1000)}部 ${num(id)}番`:`第${Math.floor(id/1000)}部 ${id%1000}問目`,sh=id=>stA()?String(num(id)):Math.floor(id/1000)+'-'+id%1000;
+const notation=()=>stA()?'表記は問題番号（例: 12 = 12番）':'表記は「部-問」（例: 8-15 = 第8部の15問目）';
+const specStr=b=>Array.isArray(b.st)&&b.st.length===b.parts.length?b.parts.map((c,i)=>b.st[i]+'-'+(b.st[i]+c-1)).join(','):b.parts.join(',');
+function parseSpec(v){
+  const E1='各部の問題数を、カンマ区切りの数（例: 8,4,6）か、範囲（例: 1-8,9-20）で入力してください';
+  const t=String(v).normalize('NFKC').split(/[,、，\s]+/).filter(x=>x);
+  if(!t.length)return{err:E1};
+  const R=/^(\d+)[-~〜ー–—−‐‑](\d+)$/,rg=t.filter(x=>R.test(x)).length;
+  if(!rg){
+    const P=t.map(x=>/^\d+$/.test(x)?parseInt(x,10):NaN);
+    if(!P.every(x=>x>=1))return{err:E1};
+    if(P.some(x=>x>999))return{err:'1つの部は999問までです'};
+    return{parts:P,st:null};
+  }
+  if(rg!==t.length)return{err:'数と範囲を混ぜずに、どちらかにそろえてください（例: 8,4,6 または 1-8,9-20）'};
+  const parts=[],st=[];let prev=0;
+  for(const x of t){
+    const m=R.exec(x),a=+m[1],b=+m[2];
+    if(a<1||b<a)return{err:'範囲は「小さい番号-大きい番号」で入力してください（例: 1-8）'};
+    if(a<=prev)return{err:'範囲は小さい番号から順に、重ならないように入力してください'};
+    if(b-a+1>999)return{err:'1つの部は999問までです'};
+    st.push(a);parts.push(b-a+1);prev=b;
+  }
+  return{parts:parts,st:st};
+}
 const fmt=ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 const el=()=>S.act?S.act.ms+(S.act.t0?Date.now()-S.act.t0:0):0;
 const cdList=()=>Object.keys(S.rated).map(Number).filter(n=>S.rated[n]==='C'||S.rated[n]==='D').sort((x,y)=>x-y);
 const chip=(n,g,d)=>`<span class="chip c${g}"${d?` data-id="${n}"`:''}>${sh(n)}${g?' '+g:''}</span>`;
 
 function setupForm(t){
-  return `<div class="card"><label>${t}</label><input id="tot" value="${S.parts.join(',')}"><p class="mu">第1部から順に、各部の問題数をカンマ区切りで入力（現在 ${S.parts.length}部・計${total()}問）</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
+  return `<div class="card"><label>${t}</label><input id="tot" value="${esc(specStr(curBook()))}"><p class="mu">第1部から順に入力します。部ごとに問題番号が1から始まる教材は問題数（例: 8,4,6）、問題番号が全部通しの教材は範囲（例: 1-8,9-20,21-35）で入力します。（現在 ${S.parts.length}部・計${total()}問${stA()?'・通し番号':''}）</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
 }
 function vRoulette(){
   const pa=pool(1),p=pool(),T=total(),done=T-pa.length,sel=selA();
@@ -225,7 +258,7 @@ function vClass(){
   const g={A:[],B:[],C:[],D:[]};
   Object.keys(S.rated).forEach(n=>g[S.rated[n]]&&g[S.rated[n]].push(+n));
   const names={D:'要復習',C:'もう少し',B:'まあまあ',A:'完璧'};
-  let h=`<p class="mu">未修: ${pool(1).length}問 ／ 表記は「部-問」（例: 8-15 = 第8部の15問目）<br>💡 番号を長押ししてドラッグすると、別の評価へ移せます</p>`;
+  let h=`<p class="mu">未修: ${pool(1).length}問 ／ ${notation()}<br>💡 番号を長押ししてドラッグすると、別の評価へ移せます</p>`;
   ['D','C','B','A'].forEach(k=>{
     g[k].sort((x,y)=>x-y);
     h+=`<div class="card gh c${k}" data-g="${k}"><div class="row"><b style="color:var(--c);font-size:18px">${k} <span style="font-size:13px">${names[k]}</span></b><span class="mu">${g[k].length}問</span></div><div>${g[k].length?g[k].map(n=>chip(n,'',1)).join(''):'<span class="mu">なし</span>'}</div></div>`;
@@ -254,7 +287,7 @@ function vLog(){
       return `<div class="rec"><div class="rl"><div><b>${full.length-full.indexOf(s)}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div></div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
     }).join('');
   }).join('');
-  return bar+'<p class="mu">表記は「部-問」（例: 8-15 = 第8部の15問目）</p>'+(body||(logF?'<p class="mu c">未対策の記録はありません 🎉</p>':''));
+  return bar+'<p class="mu">'+notation()+'</p>'+(body||(logF?'<p class="mu c">未対策の記録はありません 🎉</p>':''));
 }
 function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1700)}
 function anim(d,px,sec){
@@ -265,7 +298,6 @@ function vBar(){
   return '<div class="bks">'+S.books.map(b=>`<button class="bk${b.id===S.cur?' on':''}${b.id===popId?' pop':''}" data-bk="${esc(b.id)}">${esc(b.name)}</button>`).join('')+'<button class="bk" id="bkadd">＋</button></div>';
 }
 const curBook=()=>S.books.find(b=>b.id===S.cur)||S.books[0];
-const parseParts=v=>{const P=String(v).split(/[,、，\s]+/).filter(x=>x).map(x=>parseInt(x,10));return P.length&&P.every(x=>x>=1)?P:null};
 function setBook(id){
   if(spinning||S.cur===id||!S.books.some(b=>b.id===id))return;
   const a=S.act;if(a&&a.t0){a.ms+=Date.now()-a.t0;a.t0=null}
@@ -326,12 +358,12 @@ $('#hdl').addEventListener('click',e=>{
   else if(b.dataset.h!==undefined){const it=hist()[+b.dataset.h];if(it){cIns(it.r);closeHist()}}
 });
 function addBook(){
-  const n=$('#nn').value.trim(),P=parseParts($('#np').value),e=$('#amsg');
+  const n=$('#nn').value.trim(),sp=parseSpec($('#np').value),e=$('#amsg');
   const bad=t=>{e.textContent=t;e.style.color='var(--D)'};
   if(spinning)return bad('ルーレット中は追加できません');
   if(!n)return bad('教材名を入力してください');
-  if(!P)return bad('各部の問題数を、1以上の数のカンマ区切りで入力してください');
-  const nb=newBook(n.slice(0,30),P);S.books.push(nb);
+  if(sp.err)return bad(sp.err);
+  const nb=newBook(n.slice(0,30),sp.parts,sp.st);S.books.push(nb);
   closeAdd();tab='roulette';saveUI();setBook(nb.id);window.scrollTo(0,0);
 }
 $('#mdl').addEventListener('click',e=>{
@@ -356,7 +388,7 @@ function vSet(){
   return `<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
   +setupForm('各部の問題数（'+esc(b.name)+'）')
   +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
-  +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
+  +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details>${aiCfg()}<div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
 }
 const OPS='+−×÷',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.']];
 const hist=()=>{if(!S.calc||!Array.isArray(S.calc.hist))S.calc={hist:[]};return S.calc.hist};
@@ -452,31 +484,80 @@ function cIns(r){
   else{cE=r;cDone=true}
   cUp();
 }
-const AI=[['Gemini','','https://gemini.google.com/app'],['ChatGPT','com.openai.chatgpt','https://chatgpt.com/','js'],['Claude','com.anthropic.claude','https://claude.ai/new'],['Studyplus','jp.studyplus.android.app','https://studyplus.jp/']];
+const AI=[
+  {n:'Gemini',w:'https://gemini.google.com/app',v:[{l:'標準（端末にお任せ）',k:'i',p:'',u:'https://gemini.google.com/app'}]},
+  {n:'ChatGPT',w:'https://chatgpt.com/',v:[
+    {l:'① https のリンク（今の方法）',k:'j',p:'com.openai.chatgpt',u:'https://chatgpt.com/'},
+    {l:'② 専用スキーム chatgpt://',k:'i',p:'com.openai.chatgpt',u:'chatgpt://'},
+    {l:'③ https のリンク（GPT一覧）',k:'i',p:'com.openai.chatgpt',u:'https://chatgpt.com/gpts'},
+    {l:'④ Web版だけ開く',k:'w'}]},
+  {n:'Claude',w:'https://claude.ai/new',v:[{l:'標準',k:'i',p:'com.anthropic.claude',u:'https://claude.ai/new'}]},
+  {n:'Studyplus',w:'https://studyplus.jp/',v:[
+    {l:'① 専用スキーム studyplus://',k:'i',p:'jp.studyplus.android.app',u:'studyplus://'},
+    {l:'② https studyplus.jp',k:'i',p:'jp.studyplus.android.app',u:'https://studyplus.jp/'},
+    {l:'③ https www.studyplus.jp',k:'i',p:'jp.studyplus.android.app',u:'https://www.studyplus.jp/'},
+    {l:'④ Web版だけ開く',k:'w'}]}
+];
+const isAnd=()=>/Android/i.test((typeof navigator!=='undefined'&&navigator.userAgent)||'');
+const aiV=a=>a.v[Math.min(Math.max(Math.floor(+aiSel[a.n])||0,0),a.v.length-1)];
 function aiHref(a){
-  const u=a[2];
-  if(!/Android/i.test(navigator.userAgent||''))return `href="${u}" target="_blank" rel="noopener"`;
-  const m=u.match(/^https:\/\/([^/]+)(\/.*)$/);
-  if(a[3]==='js')return `href="${u}" data-app="1" data-h="${m[1]}${m[2]}" data-p="${a[1]}" data-u="${u}"`;
-  return `href="intent://${m[1]}${m[2]}#Intent;scheme=https${a[1]?';package='+a[1]:''};S.browser_fallback_url=${encodeURIComponent(u)};end"`;
+  const v=aiV(a);
+  if(!isAnd()||v.k==='w')return `href="${a.w}" target="_blank" rel="noopener"`;
+  const m=v.u.match(/^([a-z][a-z0-9+.-]*):\/\/(.*)$/i);
+  const it='intent://'+m[2]+'#Intent;scheme='+m[1]+(v.p?';package='+v.p:'');
+  if(v.k==='j')return `href="${a.w}" data-app="1" data-i="${esc(it+';end')}" data-u="${a.w}"`;
+  return `href="${esc(it+';S.browser_fallback_url='+encodeURIComponent(a.w)+';end')}"`;
 }
 function openApp(d){
   let gone=false;const mark=()=>{gone=true};
   document.addEventListener('visibilitychange',mark);window.addEventListener('pagehide',mark);
-  location.href='intent://'+d.h+'#Intent;scheme=https;package='+d.p+';end';
+  location.href=d.i;
   setTimeout(()=>{
     document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark);
     if(!gone&&!document.hidden)location.href=d.u;
   },1800);
 }
+function aiCfg(){
+  const L=AI.filter(a=>a.v.length>1);
+  return `<details class="card"><summary><span>🔗 アプリを開く方法</span></summary><p class="mu">電卓ページの ${L.map(a=>a.n).join('・')} のボタンでアプリが開かないときは、ここで方法を切り替えて、電卓ページで試してください。</p>`+L.map(a=>`<label>${esc(a.n)}</label><select data-ai="${esc(a.n)}">${a.v.map((v,i)=>`<option value="${i}"${aiV(a)===v?' selected':''}>${esc(v.l)}</option>`).join('')}</select>`).join('')+`</details>`;
+}
 function vCalc(){
   const H=hist();
-  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a ${aiHref(a)}>${a[0]}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a ${aiHref(a)}>${a.n}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  return h;
+}
+const pad2=n=>String(n).padStart(2,'0');
+const dayN=(y,m,d)=>Date.UTC(y,m-1,d)/864e5;
+const todayN=()=>{const t=nowFn();return dayN(t.getFullYear(),t.getMonth()+1,t.getDate())};
+const fmtN=n=>{const d=new Date(n*864e5);return d.getUTCFullYear()+'年'+(d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日（'+'日月火水木金土'[d.getUTCDay()]+'）'};
+const shortN=n=>{const d=new Date(n*864e5);return (d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日'};
+function planDay(p){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(p&&p.date||'');if(!m)return null;
+  const y=+m[1],mo=+m[2],d=+m[3],n=dayN(y,mo,d),c=new Date(n*864e5);
+  return c.getUTCFullYear()===y&&c.getUTCMonth()+1===mo&&c.getUTCDate()===d?n:null;
+}
+const plansList=()=>{if(!Array.isArray(S.plans))S.plans=[];return S.plans.filter(p=>p&&typeof p.id==='string'&&planDay(p)!==null)};
+function vPlan(){
+  const t=todayN();
+  const L=plansList().map(p=>({p:p,day:planDay(p)})).sort((a,b)=>((a.day<t)-(b.day<t))||a.day-b.day);
+  let h='<p class="mu" style="margin:2px 2px 10px">日付を入れると、その日の<b>1週間前</b>まであと何日かを表示します。</p>';
+  h+=L.length?L.map(x=>{
+    const wk=x.day-7,toWk=wk-t,toDay=x.day-t,old=toDay<0;
+    let big,sub;
+    if(toWk>0){big='あと <span>'+toWk+'</span><small>日</small>';sub='当日まで あと '+toDay+'日'}
+    else if(toWk===0){big='今日が<small>1週間前</small>です';sub='当日まで あと '+toDay+'日'}
+    else if(toDay>0){big='<small>1週間前の日は過ぎました</small>';sub='当日まで あと '+toDay+'日'}
+    else if(toDay===0){big='今日が<small>当日</small>です';sub='1週間前の日から '+(-toWk)+'日が過ぎました'}
+    else{big='<small>終了しました</small>';sub='当日から '+(-toDay)+'日が過ぎました'}
+    const ar=delArm==='pl'+x.p.id;
+    return `<div class="card pl${old?' old':''}"><div class="row"><b>${esc(x.p.name||'予定')}</b><button class="dl${ar?' arm':''}" data-pdel="${esc(x.p.id)}">${ar?'もう一度押すと削除':'🗑'}</button></div><div class="mu">${fmtN(x.day)}</div><div style="margin:10px 0 4px" class="mu">1週間前（${shortN(wk)}）まで</div><div class="pbig">${big}</div><div class="mu" style="margin-top:6px">${sub}</div></div>`;
+  }).join(''):'<p class="mu c" style="margin:18px 0">まだ予定がありません。下から追加してください。</p>';
+  h+=`<details class="card pf"${L.length?'':' open'}><summary>＋ 予定を追加</summary><label style="margin-top:12px">名前（なくてもOK）</label><input id="pn" placeholder="例: 試験" maxlength="30" value="${esc(plN)}"><label style="margin-top:10px">日付（年・月・日）</label><input id="pd" type="date" value="${esc(plD)}"><button id="padd" class="pri w">追加</button><p class="mu c" id="pmsg" style="min-height:20px"></p></details>`;
   return h;
 }
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  $('#app').innerHTML=(tab==='calc'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,set:vSet}[tab]();
+  $('#app').innerHTML=(tab==='calc'||tab==='plan'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,plan:vPlan,set:vSet}[tab]();
   if(tab==='calc')cUp();
 }
 function spin(rv){
@@ -504,7 +585,8 @@ function delRec(ts){
 }
 function vOne(){
   const inA=S.act?S.act.nums.includes(sId):false;
-  let h=`<div class="card"><label>🔍 問題を検索</label><div class="row"><span>第</span><input id="ip" type="number" inputmode="numeric" placeholder="部" style="min-width:0" value="${sIn[0]}"><span>部</span><input id="iq" type="number" inputmode="numeric" placeholder="番号" style="min-width:0" value="${sIn[1]}"><span>問目</span></div><button id="sch" class="pri w">検索</button></div>`;
+  const st=stA();
+  let h=`<div class="card"><label>🔍 問題を検索</label><div class="row">`+(st?`<span>問題番号</span><input id="iq" type="number" inputmode="numeric" placeholder="番号" style="min-width:0" value="${sIn[1]}"><span>番</span>`:`<span>第</span><input id="ip" type="number" inputmode="numeric" placeholder="部" style="min-width:0" value="${sIn[0]}"><span>部</span><input id="iq" type="number" inputmode="numeric" placeholder="番号" style="min-width:0" value="${sIn[1]}"><span>問目</span>`)+`</div><button id="sch" class="pri w">検索</button></div>`;
   if(sId){
     const g=S.rated[sId],used=S.used.includes(sId),n=S.log.filter(x=>x.nums.includes(sId)).length,ar=delArm==='p'+sId;
     h+=`<div class="card"><div class="row"><b style="font-size:20px">${lab(sId)}</b><span class="mu">${inA?'ルーレット中':g?'現在の評価 '+g:'未修'}</span></div>`;
@@ -520,6 +602,13 @@ function vOne(){
 const scOne=()=>{const e=$('#one');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})};
 function rdOne(){render();scOne()}
 function schOne(){
+  const st=stA();
+  if(st){
+    const b=$('#iq').value,n=parseInt(b,10);sIn=['',b];sC='';sR='';
+    const k=S.parts.findIndex((c,i)=>n>=st[i]&&n<=st[i]+c-1);
+    if(!(n>=1)||k<0){sId=0;sMsg='その番号の問題はありません（'+S.parts.map((c,i)=>st[i]+'〜'+(st[i]+c-1)).join('・')+'）';return rdOne()}
+    sId=(k+1)*1000+(n-st[k]+1);sMsg='';rdOne();return;
+  }
   const a=$('#ip').value,b=$('#iq').value,p=parseInt(a,10),q=parseInt(b,10);
   sIn=[a,b];sC='';sR='';
   if(!(p>=1&&p<=S.parts.length)){sId=0;sMsg='部は1〜'+S.parts.length+'で入力してください';return rdOne()}
@@ -539,8 +628,13 @@ function delOne(id){
   sMsg=lab(id)+' を未修に戻しました';save();rdOne();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'||e.target.id==='iq'))schOne()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='plan')render()});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.tab)});
+$('#app').addEventListener('change',e=>{
+  const t=e.target;
+  if(t&&t.dataset&&t.dataset.ai){aiSel[t.dataset.ai]=+t.value||0;saveUI();toast('✅ '+t.dataset.ai+' の開き方を保存しました（電卓ページで試してください）')}
+});
 $('#app').addEventListener('click',e=>{
   const ap=e.target.closest('a[data-app]');
   if(ap&&ap.dataset&&ap.dataset.app){e.preventDefault();openApp(ap.dataset);return}
@@ -555,11 +649,21 @@ $('#app').addEventListener('click',e=>{
   if(id==='hbtn'){openHist();return}
   if(id==='rcfg'){openRcfg();return}
   if(b.dataset.del){const ts=+b.dataset.del;if(delArm!==ts){delArm=ts;render();return}delArm=null;delRec(ts);return}
+  if(b.dataset.pdel){const k='pl'+b.dataset.pdel;if(delArm!==k){delArm=k;render();return}delArm=null;S.plans=plansList().filter(x=>x.id!==b.dataset.pdel);save();render();toast('🗑 予定を削除しました');return}
   if(b.dataset.sd){const k='p'+sId;if(delArm!==k){delArm=k;render();return}delArm=null;delOne(sId);return}
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
   if(id==='srec'){const t=$('#scm');if(t)sC=t.value;if(!sR){sMsg='A〜Dの評価を選んでください';render();return}recOne(sId,sR);return}
   delArm=null;
   if(id==='adm'){location.href='admin.html';return}
+  if(id==='padd'){
+    const n=$('#pn').value.trim(),d=$('#pd').value,m=$('#pmsg');
+    const bad=t=>{m.textContent=t;m.style.color='var(--D)'};
+    if(!d)return bad('日付を入力してください');
+    if(planDay({date:d})===null)return bad('日付が正しくありません');
+    if(!Array.isArray(S.plans))S.plans=[];
+    S.plans.push({id:uid(),name:n.slice(0,30),date:d});
+    plN='';plD='';save();render();toast('✅ 予定を追加しました');return;
+  }
   if(id==='lf'){logF=!logF;saveUI();render();return}
   if(b.dataset.fx){const r=S.log.find(x=>x.ts===+b.dataset.fx);if(r){r.fx=r.fx?0:1;save();if(logF&&r.fx)toast('✅ 対策済みにしました')}render();return}
   if(id==='sch')return schOne();
@@ -582,10 +686,12 @@ $('#app').addEventListener('click',e=>{
     if(!a.rv){const u=new Set(a.nums);S.used=S.used.filter(n=>!u.has(n))}S.act=null;undoArm=false;save();render();
   }
   else if(id==='stot'){
-    const P=$('#tot').value.split(/[,、，\s]+/).filter(x=>x).map(x=>parseInt(x,10));
-    if(!P.length||P.some(x=>!(x>=1)))return say('#smsg','1以上の数をカンマ区切りで入力してください');
-    S.parts=P;save();render();
-    const m=$('#smsg');if(m){m.textContent='✅ 保存しました（'+P.length+'部・計'+P.reduce((x,y)=>x+y,0)+'問）';m.style.color='var(--A)'}
+    const sp=parseSpec($('#tot').value);
+    if(sp.err)return say('#smsg',sp.err);
+    const P=sp.parts,cb=curBook();
+    S.parts=P;if(sp.st)cb.st=sp.st;else delete cb.st;
+    save();render();
+    const m=$('#smsg');if(m){m.textContent='✅ 保存しました（'+P.length+'部・計'+P.reduce((x,y)=>x+y,0)+'問'+(sp.st?'・通し番号':'')+'）';m.style.color='var(--A)'}
     toast('✅ 保存しました');
   }
   else if(id==='bcp'){
@@ -597,7 +703,7 @@ $('#app').addEventListener('click',e=>{
     catch(x){say('#bmsg','復元できませんでした。バックアップ全体を貼り付けてください')}
   }
 });
-document.addEventListener('input',e=>{if(e.target.id==='ip')sIn[0]=e.target.value;if(e.target.id==='iq')sIn[1]=e.target.value;if(e.target.id==='scm')sC=e.target.value;if(e.target.id==='cm'&&S.act){S.act.comment=e.target.value;save()}});
+document.addEventListener('input',e=>{if(e.target.id==='pn')plN=e.target.value;if(e.target.id==='pd')plD=e.target.value;if(e.target.id==='ip')sIn[0]=e.target.value;if(e.target.id==='iq')sIn[1]=e.target.value;if(e.target.id==='scm')sC=e.target.value;if(e.target.id==='cm'&&S.act){S.act.comment=e.target.value;save()}});
 let dg=null;
 const pt=e=>e.touches?(e.touches[0]||e.changedTouches[0]):e;
 const tgtAt=(x,y)=>{const e=document.elementFromPoint(x,y);return e&&e.closest('.gh')};
@@ -648,7 +754,7 @@ document.addEventListener('mousemove',dMove);
 document.addEventListener('touchend',dEnd);
 document.addEventListener('mouseup',dEnd);
 document.addEventListener('touchcancel',dCancel);
-const TABS=['roulette','rev','calc','class','log','set'];
+const TABS=['roulette','rev','calc','class','log','plan','set'];
 function go(t){
   const o=TABS.indexOf(tab),n=TABS.indexOf(t);
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
@@ -657,7 +763,7 @@ function go(t){
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,#mdl,#hdl,#rdl'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
