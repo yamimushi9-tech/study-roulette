@@ -188,9 +188,9 @@ function mkS(src){
   if(!o.calc||typeof o.calc!=='object')o.calc={hist:[]};
   return o;
 }
-let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false,aiSel={},nowFn=()=>new Date(),plN='',plD='';
-const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab,ai:aiSel}))}catch(e){}};
-try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;if(['roulette','rev','calc','class','log','plan','set'].includes(u.tab))tab=u.tab;if(u.ai&&typeof u.ai==='object'&&!Array.isArray(u.ai))aiSel=u.ai}catch(e){}
+let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false,nowFn=()=>new Date(),plN='',plD='';
+const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab}))}catch(e){}};
+try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;if(['roulette','rev','calc','class','log','plan','set'].includes(u.tab))tab=u.tab}catch(e){}
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -388,7 +388,7 @@ function vSet(){
   return `<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
   +setupForm('各部の問題数（'+esc(b.name)+'）')
   +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
-  +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details>${aiCfg()}<div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
+  +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
 }
 const OPS='+−×÷',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.']];
 const hist=()=>{if(!S.calc||!Array.isArray(S.calc.hist))S.calc={hist:[]};return S.calc.hist};
@@ -485,45 +485,14 @@ function cIns(r){
   cUp();
 }
 const AI=[
-  {n:'Gemini',w:'https://gemini.google.com/app',v:[{l:'標準（端末にお任せ）',k:'i',p:'',u:'https://gemini.google.com/app'}]},
-  {n:'ChatGPT',w:'https://chatgpt.com/',v:[
-    {l:'① https のリンク（今の方法）',k:'j',p:'com.openai.chatgpt',u:'https://chatgpt.com/'},
-    {l:'② 専用スキーム chatgpt://',k:'i',p:'com.openai.chatgpt',u:'chatgpt://'},
-    {l:'③ https のリンク（GPT一覧）',k:'i',p:'com.openai.chatgpt',u:'https://chatgpt.com/gpts'},
-    {l:'④ Web版だけ開く',k:'w'}]},
-  {n:'Claude',w:'https://claude.ai/new',v:[{l:'標準',k:'i',p:'com.anthropic.claude',u:'https://claude.ai/new'}]},
-  {n:'Studyplus',w:'https://studyplus.jp/',v:[
-    {l:'① 専用スキーム studyplus://',k:'i',p:'jp.studyplus.android.app',u:'studyplus://'},
-    {l:'② https studyplus.jp',k:'i',p:'jp.studyplus.android.app',u:'https://studyplus.jp/'},
-    {l:'③ https www.studyplus.jp',k:'i',p:'jp.studyplus.android.app',u:'https://www.studyplus.jp/'},
-    {l:'④ Web版だけ開く',k:'w'}]}
+  ['Gemini','intent://gemini.google.com/app#Intent;scheme=https;end'],
+  ['ChatGPT','intent://chatgpt.com/#Intent;scheme=https;package=com.openai.chatgpt;end'],
+  ['Claude','intent://claude.ai/new#Intent;scheme=https;package=com.anthropic.claude;end'],
+  ['Studyplus','intent://#Intent;scheme=studyplus;end']
 ];
-const isAnd=()=>/Android/i.test((typeof navigator!=='undefined'&&navigator.userAgent)||'');
-const aiV=a=>a.v[Math.min(Math.max(Math.floor(+aiSel[a.n])||0,0),a.v.length-1)];
-function aiHref(a){
-  const v=aiV(a);
-  if(!isAnd()||v.k==='w')return `href="${a.w}" target="_blank" rel="noopener"`;
-  const m=v.u.match(/^([a-z][a-z0-9+.-]*):\/\/(.*)$/i);
-  const it='intent://'+m[2]+'#Intent;scheme='+m[1]+(v.p?';package='+v.p:'');
-  if(v.k==='j')return `href="${a.w}" data-app="1" data-i="${esc(it+';end')}" data-u="${a.w}"`;
-  return `href="${esc(it+';S.browser_fallback_url='+encodeURIComponent(a.w)+';end')}"`;
-}
-function openApp(d){
-  let gone=false;const mark=()=>{gone=true};
-  document.addEventListener('visibilitychange',mark);window.addEventListener('pagehide',mark);
-  location.href=d.i;
-  setTimeout(()=>{
-    document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark);
-    if(!gone&&!document.hidden)location.href=d.u;
-  },1800);
-}
-function aiCfg(){
-  const L=AI.filter(a=>a.v.length>1);
-  return `<details class="card"><summary><span>🔗 アプリを開く方法</span></summary><p class="mu">電卓ページの ${L.map(a=>a.n).join('・')} のボタンでアプリが開かないときは、ここで方法を切り替えて、電卓ページで試してください。</p>`+L.map(a=>`<label>${esc(a.n)}</label><select data-ai="${esc(a.n)}">${a.v.map((v,i)=>`<option value="${i}"${aiV(a)===v?' selected':''}>${esc(v.l)}</option>`).join('')}</select>`).join('')+`</details>`;
-}
 function vCalc(){
   const H=hist();
-  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a ${aiHref(a)}>${a.n}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a href="${esc(a[1])}">${a[0]}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
   return h;
 }
 const pad2=n=>String(n).padStart(2,'0');
@@ -631,13 +600,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'|
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='plan')render()});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.tab)});
-$('#app').addEventListener('change',e=>{
-  const t=e.target;
-  if(t&&t.dataset&&t.dataset.ai){aiSel[t.dataset.ai]=+t.value||0;saveUI();toast('✅ '+t.dataset.ai+' の開き方を保存しました（電卓ページで試してください）')}
-});
 $('#app').addEventListener('click',e=>{
-  const ap=e.target.closest('a[data-app]');
-  if(ap&&ap.dataset&&ap.dataset.app){e.preventDefault();openApp(ap.dataset);return}
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
   if(b.dataset.bk){setBook(b.dataset.bk);return}
