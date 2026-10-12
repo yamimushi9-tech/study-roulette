@@ -93,11 +93,18 @@ details.card[open]>summary{margin-bottom:10px}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @keyframes pop{0%{transform:scale(.8)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
 .bk.pop{animation:pop .38s ease-out}
-#mdl,#hdl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12vh) 20px 20px;opacity:0;transition:opacity .18s}
-#mdl[hidden],#hdl[hidden]{display:none}
-#mdl.show,#hdl.show{opacity:1}
+#mdl,#hdl,#rdl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12vh) 20px 20px;opacity:0;transition:opacity .18s}
+#mdl[hidden],#hdl[hidden],#rdl[hidden]{display:none}
+#mdl.show,#hdl.show,#rdl.show{opacity:1}
 .mbox{width:100%;max-width:420px;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.45);transform:translateY(14px) scale(.96);transition:transform .2s}
-#mdl.show .mbox,#hdl.show .mbox{transform:none}
+#mdl.show .mbox,#hdl.show .mbox,#rdl.show .mbox{transform:none}
+#rdl .mbox{max-height:80vh;overflow-y:auto}
+.rg{padding:2px 10px;font-size:16px;border-radius:999px;background:transparent;color:var(--mu)}
+.rg.on{background:var(--pri);border-color:var(--pri);color:var(--pt)}
+.sq{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.sqb{aspect-ratio:1;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:14px;border:2px solid var(--bd);background:var(--card);color:var(--mu);font-size:22px;font-weight:800;line-height:1.1}
+.sqb small{display:block;font-size:11px;font-weight:600}
+.sqb.on{background:var(--pri);border-color:var(--pri);color:var(--pt)}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:17px}
 .mh button{padding:4px 12px}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
@@ -132,6 +139,18 @@ details.card[open]>summary{margin-bottom:10px}
     <button id="hclr" class="ghost w">🗑 履歴を消す</button>
   </div>
 </div>
+<div id="rdl" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="rt">
+    <div class="mh"><b id="rt">⚙ ルーレットの設定</b><button id="rx" class="ghost" aria-label="閉じる">✕</button></div>
+    <p class="mu" style="margin:0" id="rbk"></p>
+    <p class="mu" style="margin:8px 0 0">出題する部をタップで選びます（色が付いた部だけ出題）。</p>
+    <div class="sq" id="rsq"></div>
+    <p class="mu c" id="rsum" style="margin:0"></p>
+    <p class="mu c" id="rmsg" style="min-height:20px;margin:4px 0 0"></p>
+    <button id="rreset" class="ghost w">↺ デフォルトに戻す（全部の部）</button>
+    <button id="rok" class="pri w">閉じる</button>
+  </div>
+</div>
 <script>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -164,7 +183,9 @@ try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const pool=()=>{const u=new Set(S.used),a=[];S.parts.forEach((c,i)=>{for(let q=1;q<=c;q++){const id=(i+1)*1000+q;if(!u.has(id))a.push(id)}});return a};
+const selA=()=>{const b=curBook(),n=b.parts.length;const s=Array.isArray(b.sel)?[...new Set(b.sel)].filter(x=>Number.isInteger(x)&&x>=1&&x<=n).sort((x,y)=>x-y):null;return s&&s.length&&s.length<n?s:null};
+const pool=all=>{const u=new Set(S.used),a=[],sel=all?null:selA();S.parts.forEach((c,i)=>{if(sel&&!sel.includes(i+1))return;for(let q=1;q<=c;q++){const id=(i+1)*1000+q;if(!u.has(id))a.push(id)}});return a};
+function rng(a){const o=[];let i=0;while(i<a.length){let j=i;while(j+1<a.length&&a[j+1]===a[j]+1)j++;o.push(j-i>=2?a[i]+'〜'+a[j]:a.slice(i,j+1).join('・'));i=j+1}return o.join('・')}
 const total=()=>S.parts.reduce((t,c)=>t+c,0);
 const lab=id=>`第${Math.floor(id/1000)}部 ${id%1000}問目`,sh=id=>Math.floor(id/1000)+'-'+id%1000;
 const fmt=ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
@@ -176,11 +197,11 @@ function setupForm(t){
   return `<div class="card"><label>${t}</label><input id="tot" value="${S.parts.join(',')}"><p class="mu">第1部から順に、各部の問題数をカンマ区切りで入力（現在 ${S.parts.length}部・計${total()}問）</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
 }
 function vRoulette(){
-  const p=pool(),T=total(),done=T-p.length;
-  let h=`<div class="card"><div class="row"><span>未修 <b>${p.length}</b> / ${T} 問</span><span class="mu">${Math.round(done/T*100)}% 完了</span></div><div class="bar"><i style="width:${done/T*100}%"></i></div></div>`;
+  const pa=pool(1),p=pool(),T=total(),done=T-pa.length,sel=selA();
+  let h=`<div class="card"><div class="row"><span>未修 <b>${pa.length}</b> / ${T} 問</span><span class="row"><span class="mu">${Math.round(done/T*100)}% 完了</span><button class="rg${sel?' on':''}" id="rcfg" aria-label="ルーレットの設定">⚙</button></span></div><div class="bar"><i style="width:${done/T*100}%"></i></div>${sel?`<p class="mu" style="margin:8px 0 0">🎛 出題対象: 第${rng(sel)}部（残り ${p.length}問）</p>`:''}</div>`;
   if(S.act)return h+(S.act.rv?'<div class="card c mu">📚 復習中です。「復習」タブで続けてください</div>':vSession())+vOne();
   h+=`<div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="spin" ${p.length?'':'disabled'}>🎯 ルーレットを回す</button>`;
-  if(!p.length)h+='<p class="c mu">全問題を一巡しました 🎉</p>';
+  if(!p.length)h+=(sel&&pa.length)?'<p class="c mu">選んだ部の問題は一巡しました 🎉<br>⚙ から出題する部を変えられます</p>':'<p class="c mu">全問題を一巡しました 🎉</p>';
   return h+vOne();
 }
 function vRev(){
@@ -199,7 +220,7 @@ function vClass(){
   const g={A:[],B:[],C:[],D:[]};
   Object.keys(S.rated).forEach(n=>g[S.rated[n]]&&g[S.rated[n]].push(+n));
   const names={D:'要復習',C:'もう少し',B:'まあまあ',A:'完璧'};
-  let h=`<p class="mu">未修: ${pool().length}問 ／ 表記は「部-問」（例: 8-15 = 第8部の15問目）<br>💡 番号を長押ししてドラッグすると、別の評価へ移せます</p>`;
+  let h=`<p class="mu">未修: ${pool(1).length}問 ／ 表記は「部-問」（例: 8-15 = 第8部の15問目）<br>💡 番号を長押ししてドラッグすると、別の評価へ移せます</p>`;
   ['D','C','B','A'].forEach(k=>{
     g[k].sort((x,y)=>x-y);
     h+=`<div class="card gh c${k}" data-g="${k}"><div class="row"><b style="color:var(--c);font-size:18px">${k} <span style="font-size:13px">${names[k]}</span></b><span class="mu">${g[k].length}問</span></div><div>${g[k].length?g[k].map(n=>chip(n,'',1)).join(''):'<span class="mu">なし</span>'}</div></div>`;
@@ -262,6 +283,34 @@ function renderHist(){
   c.hidden=!H.length;c.textContent=cArm?'もう一度押すと全削除':'🗑 履歴を消す';
   c.style.color=cArm?'var(--D)':'';c.style.borderColor=cArm?'var(--D)':'';
 }
+function renderRcfg(){
+  const b=curBook(),sel=selA(),u=new Set(S.used);
+  $('#rbk').textContent='📘 '+b.name;
+  $('#rsq').innerHTML=b.parts.map((c,i)=>{
+    let left=0;for(let q=1;q<=c;q++)if(!u.has((i+1)*1000+q))left++;
+    const on=!sel||sel.includes(i+1);
+    return `<button class="sqb${on?' on':''}" data-sq="${i+1}" aria-pressed="${on}">${i+1}<small>残り${left}</small></button>`;
+  }).join('');
+  $('#rsum').textContent='対象 '+(sel?sel.length:b.parts.length)+'部 / '+b.parts.length+'部 ・ 残り '+pool().length+'問';
+  $('#rreset').disabled=!sel;
+}
+function openRcfg(){const m=$('#rmsg');m.textContent='';renderRcfg();pOpen($('#rdl'))}
+function closeRcfg(){pClose($('#rdl'))}
+function togSq(n){
+  const b=curBook(),all=b.parts.map((_,i)=>i+1),cur=selA()||all;
+  const nx=cur.includes(n)?cur.filter(x=>x!==n):[...cur,n].sort((x,y)=>x-y),m=$('#rmsg');
+  if(!nx.length){m.textContent='1つ以上選んでください';m.style.color='var(--D)';return}
+  m.textContent='';b.sel=nx.length===all.length?null:nx;
+  save();renderRcfg();render();
+}
+function resetSel(){const b=curBook();if(!selA())return;b.sel=null;$('#rmsg').textContent='';save();renderRcfg();render();toast('↺ デフォルトに戻しました')}
+$('#rdl').addEventListener('click',e=>{
+  if(e.target.id==='rdl')return closeRcfg();
+  const b=e.target.closest('button');if(!b)return;
+  if(b.id==='rx'||b.id==='rok')closeRcfg();
+  else if(b.id==='rreset')resetSel();
+  else if(b.dataset.sq)togSq(+b.dataset.sq);
+});
 function openHist(){cArm=false;renderHist();pOpen($('#hdl'))}
 function closeHist(){cArm=false;pClose($('#hdl'))}
 $('#hdl').addEventListener('click',e=>{
@@ -286,7 +335,7 @@ $('#mdl').addEventListener('click',e=>{
   if(b.id==='mx')closeAdd();else if(b.id==='nadd')addBook();
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeAdd();closeHist()}
+  if(e.key==='Escape'){closeAdd();closeHist();closeRcfg()}
   else if(e.key==='Enter'&&(e.target.id==='nn'||e.target.id==='np'))addBook();
 });
 function delBook(){
@@ -480,6 +529,7 @@ $('#app').addEventListener('click',e=>{
   if(id==='bren'){const v=$('#bname').value.trim();if(!v)return say('#rmsg','教材名を入力してください');curBook().name=v.slice(0,30);save();render();toast('✅ 名前を保存しました');return}
   if(b.dataset.k){cKey(b.dataset.k);return}
   if(id==='hbtn'){openHist();return}
+  if(id==='rcfg'){openRcfg();return}
   if(b.dataset.del){const ts=+b.dataset.del;if(delArm!==ts){delArm=ts;render();return}delArm=null;delRec(ts);return}
   if(b.dataset.sd){const k='p'+sId;if(delArm!==k){delArm=k;render();return}delArm=null;delOne(sId);return}
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
@@ -583,7 +633,7 @@ function go(t){
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,#mdl,#hdl'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,#mdl,#hdl,#rdl'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
