@@ -181,7 +181,8 @@ function mkS(src){
   return o;
 }
 let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false;
-try{logF=!!JSON.parse(localStorage.getItem('studylog_ui')||'{}').logF}catch(e){}
+const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab}))}catch(e){}};
+try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;if(['roulette','rev','calc','class','log','set'].includes(u.tab))tab=u.tab}catch(e){}
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -330,7 +331,7 @@ function addBook(){
   if(!n)return bad('教材名を入力してください');
   if(!P)return bad('各部の問題数を、1以上の数のカンマ区切りで入力してください');
   const nb=newBook(n.slice(0,30),P);S.books.push(nb);
-  closeAdd();tab='roulette';setBook(nb.id);window.scrollTo(0,0);
+  closeAdd();tab='roulette';saveUI();setBook(nb.id);window.scrollTo(0,0);
 }
 $('#mdl').addEventListener('click',e=>{
   if(e.target.id==='mdl')return closeAdd();
@@ -450,12 +451,12 @@ function cIns(r){
   else{cE=r;cDone=true}
   cUp();
 }
-const AI=[['Gemini','com.google.android.apps.bard','https://gemini.google.com/app'],['ChatGPT','com.openai.chatgpt','https://chatgpt.com/'],['Claude','com.anthropic.claude','https://claude.ai/new']];
+const AI=[['Gemini','','https://gemini.google.com/app'],['ChatGPT','com.openai.chatgpt','https://chatgpt.com/'],['Claude','com.anthropic.claude','https://claude.ai/new']];
 function aiHref(a){
   const u=a[2];
   if(!/Android/i.test(navigator.userAgent||''))return `href="${u}" target="_blank" rel="noopener"`;
   const m=u.match(/^https:\/\/([^/]+)(\/.*)$/);
-  return `href="intent://${m[1]}${m[2]}#Intent;scheme=https;package=${a[1]};S.browser_fallback_url=${encodeURIComponent(u)};end"`;
+  return `href="intent://${m[1]}${m[2]}#Intent;scheme=https${a[1]?';package='+a[1]:''};S.browser_fallback_url=${encodeURIComponent(u)};end"`;
 }
 function vCalc(){
   const H=hist();
@@ -546,7 +547,7 @@ $('#app').addEventListener('click',e=>{
   if(id==='srec'){const t=$('#scm');if(t)sC=t.value;if(!sR){sMsg='A〜Dの評価を選んでください';render();return}recOne(sId,sR);return}
   delArm=null;
   if(id==='adm'){location.href='admin.html';return}
-  if(id==='lf'){logF=!logF;try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF}))}catch(e){}render();return}
+  if(id==='lf'){logF=!logF;saveUI();render();return}
   if(b.dataset.fx){const r=S.log.find(x=>x.ts===+b.dataset.fx);if(r){r.fx=r.fx?0:1;save();if(logF&&r.fx)toast('✅ 対策済みにしました')}render();return}
   if(id==='sch')return schOne();
   if(id==='spin')spin();
@@ -637,7 +638,7 @@ document.addEventListener('touchcancel',dCancel);
 const TABS=['roulette','rev','calc','class','log','set'];
 function go(t){
   const o=TABS.indexOf(tab),n=TABS.indexOf(t);
-  tab=t;delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
+  tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
   anim(n>o?1:-1,40,.22);
 }
 let sw=null,swBlock=false;
