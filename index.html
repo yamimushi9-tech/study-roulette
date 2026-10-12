@@ -70,7 +70,7 @@ h3{margin:18px 2px 8px;font-size:15px}
 .bks{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 14px}
 .bk{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px}
 .bk.on{background:var(--pri);color:var(--pt);border-color:var(--pri)}
-.cdp{position:relative;padding-top:40px;min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
+.cdp{min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
 .cx{font-size:32px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
 .cr{font-size:18px;color:var(--mu);min-height:26px;margin-top:4px;font-variant-numeric:tabular-nums}
 .kp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -78,9 +78,10 @@ h3{margin:18px 2px 8px;font-size:15px}
 .kp .op{color:var(--pri);border-color:var(--pri)}
 .kp .ac{color:var(--D);border-color:var(--D)}
 .kp .eq{grid-column:1/-1;background:var(--pri);color:var(--pt);border-color:var(--pri)}
-.hb{position:absolute;left:10px;top:10px;padding:4px 12px;font-size:13px;font-weight:700;border-radius:999px;color:var(--pri);border-color:var(--pri);background:transparent}
-.ais{position:absolute;right:10px;top:10px;display:flex;gap:6px}
-.ais a{padding:4px 10px;font-size:12px;font-weight:700;line-height:1.4;border-radius:999px;border:1px solid var(--bd);color:var(--mu);text-decoration:none;background:transparent}
+.tb{align-self:stretch;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px;text-align:left}
+.hb{padding:3px 11px;font-size:13px;font-weight:700;border-radius:999px;color:var(--pri);border-color:var(--pri);background:transparent}
+.ais{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;margin-left:auto}
+.ais a{padding:3px 9px;font-size:12px;font-weight:700;line-height:1.4;border-radius:999px;border:1px solid var(--bd);color:var(--mu);text-decoration:none;background:transparent}
 .ais a:active{background:var(--bd)}
 .hl{max-height:50vh;overflow-y:auto;margin-bottom:6px}
 .hi{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin-bottom:6px;padding:10px 12px;text-align:left}
@@ -451,16 +452,26 @@ function cIns(r){
   else{cE=r;cDone=true}
   cUp();
 }
-const AI=[['Gemini','','https://gemini.google.com/app'],['ChatGPT','com.openai.chatgpt','https://chatgpt.com/'],['Claude','com.anthropic.claude','https://claude.ai/new']];
+const AI=[['Gemini','','https://gemini.google.com/app'],['ChatGPT','com.openai.chatgpt','https://chatgpt.com/','js'],['Claude','com.anthropic.claude','https://claude.ai/new'],['Studyplus','jp.studyplus.android.app','https://studyplus.jp/']];
 function aiHref(a){
   const u=a[2];
   if(!/Android/i.test(navigator.userAgent||''))return `href="${u}" target="_blank" rel="noopener"`;
   const m=u.match(/^https:\/\/([^/]+)(\/.*)$/);
+  if(a[3]==='js')return `href="${u}" data-app="1" data-h="${m[1]}${m[2]}" data-p="${a[1]}" data-u="${u}"`;
   return `href="intent://${m[1]}${m[2]}#Intent;scheme=https${a[1]?';package='+a[1]:''};S.browser_fallback_url=${encodeURIComponent(u)};end"`;
+}
+function openApp(d){
+  let gone=false;const mark=()=>{gone=true};
+  document.addEventListener('visibilitychange',mark);window.addEventListener('pagehide',mark);
+  location.href='intent://'+d.h+'#Intent;scheme=https;package='+d.p+';end';
+  setTimeout(()=>{
+    document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark);
+    if(!gone&&!document.hidden)location.href=d.u;
+  },1800);
 }
 function vCalc(){
   const H=hist();
-  let h='<div class="card cdp"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a ${aiHref(a)}>${a[0]}</a>`).join('')+'</span><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a ${aiHref(a)}>${a[0]}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
   return h;
 }
 function render(){
@@ -531,6 +542,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'|
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.tab)});
 $('#app').addEventListener('click',e=>{
+  const ap=e.target.closest('a[data-app]');
+  if(ap&&ap.dataset&&ap.dataset.app){e.preventDefault();openApp(ap.dataset);return}
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
   if(b.dataset.bk){setBook(b.dataset.bk);return}
