@@ -80,6 +80,8 @@ h3{margin:18px 2px 8px;font-size:15px}
 .kp .eq{grid-column:1/-1;background:var(--pri);color:var(--pt);border-color:var(--pri)}
 .tb{align-self:stretch;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px;text-align:left}
 .hb{padding:3px 11px;font-size:13px;font-weight:700;border-radius:999px;color:var(--pri);border-color:var(--pri);background:transparent}
+.tcard{position:relative}
+.tsp{position:absolute;right:12px;top:12px;margin:0}
 .ais{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;margin-left:auto}
 .ais a{padding:3px 9px;font-size:12px;font-weight:700;line-height:1.4;border-radius:999px;border:1px solid var(--bd);color:var(--mu);text-decoration:none;background:transparent}
 .ais a:active{background:var(--bd)}
@@ -249,7 +251,7 @@ function vRev(){
 }
 function vSession(){
   const a=S.act;
-  let h=(a.rv?'<p class="mu c">📚 復習セッション（C・D評価の問題から出題）</p>':'')+`<div class="card"><div class="timer" id="tm">${fmt(el())}</div><div class="row"><button id="tgo" class="${a.t0?'':'pri'}">${a.t0?'⏸ 一時停止':'▶ 開始'}</button><button id="trs" class="ghost">リセット</button></div></div>`;
+  let h=(a.rv?'<p class="mu c">📚 復習セッション（C・D評価の問題から出題）</p>':'')+`<div class="card tcard"><span class="ais tsp"><a href="${esc(AI.find(x=>x[0]==='Studyplus')[1])}">Studyplus</a></span><div class="timer" id="tm">${fmt(el())}</div><div class="row"><button id="tgo" class="${a.t0?'':'pri'}">${a.t0?'⏸ 一時停止':'▶ 開始'}</button><button id="trs" class="ghost">リセット</button></div></div>`;
   a.nums.forEach(n=>{h+=`<div class="card prob"><div class="num">${lab(n)}${a.rv?`<br><small>現在の評価 ${S.rated[n]}</small>`:''}</div><div class="rt">${['A','B','C','D'].map(g=>`<button class="g g${g} ${a.r[n]===g?'on':''}" data-n="${n}" data-g="${g}">${g}</button>`).join('')}</div></div>`});
   h+=`<div class="card"><label>📝 反省コメント</label><textarea id="cm" rows="4" placeholder="できなかった理由、次に気をつけること…">${esc(a.comment)}</textarea></div><p id="msg" class="mu c">${a.rv?'評価をつけなかった問題は、元の評価のままです':'評価をつけなかった問題は、記録されず未修に戻ります'}</p><button class="big" id="fin">✅ 完了して記録する</button><button class="ghost w" id="undo">${undoArm?(a.rv?'もう一度押すとやめます':'もう一度押すと未修に戻します'):(a.rv?'やめる（復習を中止）':'やり直し（この問題を未修に戻す）')}</button>`;
   return h;
