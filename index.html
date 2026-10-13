@@ -486,13 +486,22 @@ function cIns(r){
 }
 const AI=[
   ['Gemini','intent://gemini.google.com/app#Intent;scheme=https;end'],
-  ['ChatGPT','intent://chatgpt.com/#Intent;scheme=https;package=com.openai.chatgpt;end'],
+  ['ChatGPT','intent://chatgpt.com/gpts#Intent;scheme=https;package=com.openai.chatgpt;end','intent://#Intent;scheme=chatgpt;end'],
   ['Claude','intent://claude.ai/new#Intent;scheme=https;package=com.anthropic.claude;end'],
   ['Studyplus','intent://#Intent;scheme=studyplus;end']
 ];
+function openChain(first,next){
+  let gone=false;const mark=()=>{gone=true};
+  document.addEventListener('visibilitychange',mark);window.addEventListener('pagehide',mark);window.addEventListener('blur',mark);
+  location.href=first;
+  setTimeout(()=>{
+    document.removeEventListener('visibilitychange',mark);window.removeEventListener('pagehide',mark);window.removeEventListener('blur',mark);
+    if(!gone&&!document.hidden)location.href=next;
+  },1500);
+}
 function vCalc(){
   const H=hist();
-  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a href="${esc(a[1])}">${a[0]}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a href="${esc(a[1])}"${a[2]?` data-first="${esc(a[2])}" data-next="${esc(a[1])}"`:''}>${a[0]}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
   return h;
 }
 const pad2=n=>String(n).padStart(2,'0');
@@ -601,6 +610,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='pl
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.tab)});
 $('#app').addEventListener('click',e=>{
+  const af=e.target.closest('a[data-first]');
+  if(af&&af.dataset&&af.dataset.first){e.preventDefault();openChain(af.dataset.first,af.dataset.next);return}
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
   if(b.dataset.bk){setBook(b.dataset.bk);return}
