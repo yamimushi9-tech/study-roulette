@@ -99,11 +99,21 @@ details.card[open]>summary{margin-bottom:10px}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 @keyframes pop{0%{transform:scale(.8)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
 .bk.pop{animation:pop .38s ease-out}
-#mdl,#hdl,#rdl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12vh) 20px 20px;opacity:0;transition:opacity .18s}
-#mdl[hidden],#hdl[hidden],#rdl[hidden]{display:none}
-#mdl.show,#hdl.show,#rdl.show{opacity:1}
+#mdl,#hdl,#rdl,#gdl{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12vh) 20px 20px;opacity:0;transition:opacity .18s}
+#mdl[hidden],#hdl[hidden],#rdl[hidden],#gdl[hidden]{display:none}
+#mdl.show,#hdl.show,#rdl.show,#gdl.show{opacity:1}
 .mbox{width:100%;max-width:420px;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.45);transform:translateY(14px) scale(.96);transition:transform .2s}
-#mdl.show .mbox,#hdl.show .mbox,#rdl.show .mbox{transform:none}
+#mdl.show .mbox,#hdl.show .mbox,#rdl.show .mbox,#gdl.show .mbox{transform:none}
+#gdl{align-items:center;padding-top:20px}
+.gitem{padding:12px 0}
+.gitem+.gitem{border-top:1px solid var(--bd)}
+.gname{font-weight:700;font-size:18px}
+.gsub{color:var(--mu);font-size:14px;margin-top:2px}
+.gbig{font-size:30px;font-weight:800;line-height:1.3;margin-top:4px}
+.gbig b{font-size:68px;font-variant-numeric:tabular-nums}
+.gbar{height:5px;background:var(--bd);border-radius:9px;overflow:hidden;margin-top:12px}
+.gbar i{display:block;height:100%;width:100%;background:var(--pri)}
+@keyframes gb{from{width:100%}to{width:0}}
 #rdl .mbox{max-height:80vh;overflow-y:auto}
 .rg{padding:2px 10px;font-size:16px;border-radius:999px;background:transparent;color:var(--mu)}
 .rg.on{background:var(--pri);border-color:var(--pri);color:var(--pt)}
@@ -150,6 +160,13 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <button id="hclr" class="ghost w">🗑 履歴を消す</button>
   </div>
 </div>
+<div id="gdl" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-label="予定のおしらせ" style="text-align:center">
+    <p class="mu" style="margin:0">📅 予定のおしらせ</p>
+    <div id="glist"></div>
+    <div class="gbar"><i id="gbar"></i></div>
+  </div>
+</div>
 <div id="rdl" hidden>
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="rt">
     <div class="mh"><b id="rt">⚙ ルーレットの設定</b><button id="rx" class="ghost" aria-label="閉じる">✕</button></div>
@@ -190,9 +207,9 @@ function mkS(src){
   if(!o.calc||typeof o.calc!=='object')o.calc={hist:[]};
   return o;
 }
-let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false,nowFn=()=>new Date(),plN='',plD='';
-const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab}))}catch(e){}};
-try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;if(['roulette','rev','calc','class','log','plan','set'].includes(u.tab))tab=u.tab}catch(e){}
+let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false,nowFn=()=>new Date(),plN='',plD='',greetD='',gt;
+const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab,g:greetD}))}catch(e){}};
+try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;greetD=typeof u.g==='string'?u.g:'';if(['roulette','rev','calc','class','log','plan','set'].includes(u.tab))tab=u.tab}catch(e){}
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const $=s=>document.querySelector(s);
@@ -374,7 +391,7 @@ $('#mdl').addEventListener('click',e=>{
   if(b.id==='mx')closeAdd();else if(b.id==='nadd')addBook();
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeAdd();closeHist();closeRcfg()}
+  if(e.key==='Escape'){closeAdd();closeHist();closeRcfg();closeGreet()}
   else if(e.key==='Enter'&&(e.target.id==='nn'||e.target.id==='np'))addBook();
 });
 function delBook(){
@@ -535,6 +552,25 @@ function vPlan(){
   h+=`<details class="card pf"${L.length?'':' open'}><summary>＋ 予定を追加</summary><label style="margin-top:12px">名前（なくてもOK）</label><input id="pn" placeholder="例: 試験" maxlength="30" value="${esc(plN)}"><label style="margin-top:10px">日付（年・月・日）</label><input id="pd" type="date" value="${esc(plD)}"><button id="padd" class="pri w">追加</button><p class="mu c" id="pmsg" style="min-height:20px"></p></details>`;
   return h;
 }
+const todayStr=()=>{const t=nowFn();return t.getFullYear()+'-'+pad2(t.getMonth()+1)+'-'+pad2(t.getDate())};
+function closeGreet(){clearTimeout(gt);pClose($('#gdl'))}
+function maybeGreet(){
+  const d=todayStr();if(greetD===d)return;
+  const t=todayN(),L=plansList().map(p=>({p:p,day:planDay(p)})).filter(x=>x.day-t>=0).sort((a,b)=>a.day-b.day);
+  if(!L.length)return;
+  $('#glist').innerHTML=L.slice(0,3).map(x=>{
+    const wk=x.day-7,toWk=wk-t,toDay=x.day-t;let sub,big;
+    if(toWk>0){sub='1週間前（'+shortN(wk)+'）まで';big='あと <b>'+toWk+'</b> 日'}
+    else if(toWk===0){sub='1週間前（'+shortN(wk)+'）';big='今日が1週間前です'}
+    else if(toDay>0){sub='当日（'+shortN(x.day)+'）まで';big='あと <b>'+toDay+'</b> 日'}
+    else{sub='当日（'+shortN(x.day)+'）';big='今日が当日です'}
+    return `<div class="gitem"><div class="gname">${esc(x.p.name||'予定')}</div><div class="gsub">${sub}</div><div class="gbig">${big}</div></div>`;
+  }).join('')+(L.length>3?`<p class="mu" style="margin:6px 0 0">ほか ${L.length-3}件</p>`:'');
+  const b=$('#gbar');b.style.animation='none';b.offsetWidth;b.style.animation='gb 3s linear forwards';
+  greetD=d;saveUI();pOpen($('#gdl'));
+  clearTimeout(gt);gt=setTimeout(closeGreet,3000);
+}
+$('#gdl').addEventListener('click',closeGreet);
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   $('#app').innerHTML=(tab==='calc'||tab==='plan'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,plan:vPlan,set:vSet}[tab]();
@@ -608,7 +644,7 @@ function delOne(id){
   sMsg=lab(id)+' を未修に戻しました';save();rdOne();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'||e.target.id==='iq'))schOne()});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='plan')render()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(tab==='plan')render();maybeGreet()}});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.tab)});
 $('#app').addEventListener('click',e=>{
@@ -750,6 +786,7 @@ document.addEventListener('touchend',e=>{
 },{passive:true});
 setInterval(()=>{const t=$('#tm');if(t&&S.act)t.textContent=fmt(el())},500);
 render();
+maybeGreet();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
