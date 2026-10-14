@@ -872,23 +872,26 @@ document.addEventListener('mousemove',dMove);
 document.addEventListener('touchend',dEnd);
 document.addEventListener('mouseup',dEnd);
 document.addEventListener('touchcancel',dCancel);
-const TABS=['roulette','rev','calc','class','log','plan','memo','set'];
+const TABS=['roulette','calc','log','other'];
 function go(t){
-  const o=TABS.indexOf(tab),n=TABS.indexOf(t);
+  const o=Math.max(0,TABS.includes(tab)?TABS.indexOf(tab):3),n=TABS.includes(t)?TABS.indexOf(t):3;
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
   anim(n>o?1:-1,40,.22);
 }
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#drw,#ndl'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#ndl'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
   const p=e.changedTouches[0],dx=p.clientX-sw.x,dy=p.clientY-sw.y;sw=null;
   if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.6)return;
-  const i=TABS.indexOf(tab)+(dx<0?1:-1);
-  if(i>=0&&i<TABS.length)go(TABS[i]);
+  const current=drOpen?3:(TABS.includes(tab)?TABS.indexOf(tab):3);
+  const i=current+(dx<0?1:-1);
+  if(i<0||i>=TABS.length)return;
+  if(TABS[i]==='other')openDrawer();
+  else{if(drOpen)closeDrawer();go(TABS[i])}
 },{passive:true});
 setInterval(()=>{const t=$('#tm');if(t&&S.act)t.textContent=fmt(el())},500);
 render();
@@ -1057,7 +1060,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
 <script>
 /* よく使う機能への下部メニュー */
 (() => {
-  const quickTabs = ['roulette', 'calc', 'log'];
+  const quickTabs = TABS.slice(0,-1);
   const css = document.createElement('style');
   css.textContent = `
     #nav #mn { display:none; }
