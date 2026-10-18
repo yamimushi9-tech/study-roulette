@@ -149,6 +149,15 @@ details.pf>summary{cursor:pointer;font-weight:700}
 .pbig small{font-size:15px;font-weight:700;margin:0 2px}
 .pl.old{opacity:.55}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
+.rwdetail{margin:12px 0 14px;border-top:1px solid var(--bd);padding-top:12px}
+.rwdetail>summary{cursor:pointer;font-weight:700}
+.rw{padding:10px 0;border-top:1px solid var(--bd)}
+.rw .row label{margin:0}
+.rw output{color:var(--pri);font-weight:800;font-variant-numeric:tabular-nums}
+.rw input[type="range"]{display:block;width:100%;height:36px;margin:6px 0 0;padding:0;border:0;background:transparent;accent-color:var(--pri)}
+.rw input:disabled{opacity:.4}
+.rw .rwends{display:flex;justify-content:space-between;color:var(--mu);font-size:12px}
+.rw .rwinfo{margin-top:4px;color:var(--mu);font-size:12px}
 </style>
 </head>
 <body>
@@ -203,9 +212,15 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <p class="mu" style="margin:0" id="rbk"></p>
     <p class="mu" style="margin:8px 0 0">出題する部をタップで選びます（色が付いた部だけ出題）。</p>
     <div class="sq" id="rsq"></div>
+    <details class="rwdetail">
+      <summary>🎚 部ごとの出やすさ（0〜100）</summary>
+      <p class="mu">50が標準、0は出題しません。100は50の2倍の重みです。実際の確率は残り問題数や他の部の設定で変わります。</p>
+      <div id="rweights"></div>
+      <p class="mu">「次の1問」は、今の未修問題から最初に1問選ぶ場合の確率です。5問は重複なしで抽選します。設定は教材ごとに自動保存します。</p>
+    </details>
     <p class="mu c" id="rsum" style="margin:0"></p>
     <p class="mu c" id="rmsg" style="min-height:20px;margin:4px 0 0"></p>
-    <button id="rreset" class="ghost w">↺ デフォルトに戻す（全部の部）</button>
+    <button id="rreset" class="ghost w">↺ デフォルトに戻す（全部の部・出やすさ50）</button>
     <button id="rok" class="pri w">閉じる</button>
   </div>
 </div>
@@ -248,6 +263,29 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const selA=()=>{const b=curBook(),n=b.parts.length;const s=Array.isArray(b.sel)?[...new Set(b.sel)].filter(x=>Number.isInteger(x)&&x>=1&&x<=n).sort((x,y)=>x-y):null;return s&&s.length&&s.length<n?s:null};
 const pool=all=>{const u=new Set(S.used),a=[],sel=all?null:selA();S.parts.forEach((c,i)=>{if(sel&&!sel.includes(i+1))return;for(let q=1;q<=c;q++){const id=(i+1)*1000+q;if(!u.has(id))a.push(id)}});return a};
 function rng(a){const o=[];let i=0;while(i<a.length){let j=i;while(j+1<a.length&&a[j+1]===a[j]+1)j++;o.push(j-i>=2?a[i]+'〜'+a[j]:a.slice(i,j+1).join('・'));i=j+1}return o.join('・')}
+// 出やすさは1問ごとの相対的な重み。既存教材は50が標準。
+function partWeight(part,b=curBook()){
+  const value=Array.isArray(b.weights)?b.weights[part-1]:undefined;
+  return typeof value==='number'&&Number.isFinite(value)?Math.max(0,Math.min(100,Math.round(value))):50;
+}
+const drawPool=()=>pool().filter(id=>partWeight(Math.floor(id/1000))>0);
+function pickProblems(source,review){
+  const remaining=source.slice(),picked=[];
+  while(picked.length<5&&remaining.length){
+    const weights=remaining.map(id=>review?1:partWeight(Math.floor(id/1000)));
+    const sum=weights.reduce((a,b)=>a+b,0);
+    if(sum<=0)break;
+    let ticket=Math.random()*sum,index=-1;
+    for(let i=0;i<weights.length;i++){
+      if(weights[i]<=0)continue;
+      index=i;ticket-=weights[i];
+      if(ticket<0)break;
+    }
+    if(index<0)break;
+    picked.push(remaining.splice(index,1)[0]);
+  }
+  return picked.sort((a,b)=>a-b);
+}
 const total=()=>S.parts.reduce((t,c)=>t+c,0);
 const stA=()=>{const b=curBook();return Array.isArray(b.st)&&b.st.length===b.parts.length&&b.st.every(x=>Number.isInteger(x)&&x>=1)?b.st:null};
 const num=id=>{const st=stA(),q=id%1000;return st?st[Math.floor(id/1000)-1]+q-1:q};
@@ -285,11 +323,11 @@ function setupForm(t){
   return `<div class="card"><label>${t}</label><input id="tot" value="${esc(specStr(curBook()))}"><p class="mu">第1部から順に入力します。部ごとに問題番号が1から始まる教材は問題数（例: 8,4,6）、問題番号が全部通しの教材は範囲（例: 1-8,9-20,21-35）で入力します。（現在 ${S.parts.length}部・計${total()}問${stA()?'・通し番号':''}）</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
 }
 function vRoulette(){
-  const pa=pool(1),p=pool(),T=total(),done=T-pa.length,sel=selA();
+  const pa=pool(1),p=drawPool(),T=total(),done=T-pa.length,sel=selA();
   let h=`<div class="card"><div class="row"><span>未修 <b>${pa.length}</b> / ${T} 問</span><span class="row"><span class="mu">${Math.round(done/T*100)}% 完了</span><button class="rg${sel?' on':''}" id="rcfg" aria-label="ルーレットの設定">⚙</button></span></div><div class="bar"><i style="width:${done/T*100}%"></i></div>${sel?`<p class="mu" style="margin:8px 0 0">🎛 出題対象: 第${rng(sel)}部（残り ${p.length}問）</p>`:''}</div>`;
   if(S.act)return h+(S.act.rv?'<div class="card c mu">📚 復習中です。「復習」タブで続けてください</div>':vSession())+vOne();
   h+=`<div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="spin" ${p.length?'':'disabled'}>🎯 ルーレットを回す</button>`;
-  if(!p.length)h+=(sel&&pa.length)?'<p class="c mu">選んだ部の問題は一巡しました 🎉<br>⚙ から出題する部を変えられます</p>':'<p class="c mu">全問題を一巡しました 🎉</p>';
+  if(!p.length)h+=!pa.length?'<p class="c mu">全問題を一巡しました 🎉</p>':pool().length?'<p class="c mu">出題対象の出やすさがすべて0です。<br>⚙ から1つ以上の部を1〜100にしてください。</p>':'<p class="c mu">選んだ部の問題は一巡しました 🎉<br>⚙ から出題する部を変えられます</p>';
   return h+vOne();
 }
 function vRev(){
@@ -378,9 +416,41 @@ function renderRcfg(){
     const on=!sel||sel.includes(i+1);
     return `<button class="sqb${on?' on':''}" data-sq="${i+1}" aria-pressed="${on}">${i+1}<small>残り${left}</small></button>`;
   }).join('');
-  $('#rsum').textContent='対象 '+(sel?sel.length:b.parts.length)+'部 / '+b.parts.length+'部 ・ 残り '+pool().length+'問';
-  $('#rreset').disabled=!sel;
+  $('#rweights').innerHTML=b.parts.map((c,i)=>{
+    const n=i+1,on=!sel||sel.includes(n),value=partWeight(n);
+    return `<div class="rw"><div class="row"><label for="rw-${n}">第${n}部</label><output id="rwv-${n}" for="rw-${n}">${value}</output></div><input id="rw-${n}" data-weight="${n}" type="range" min="0" max="100" step="1" value="${value}" aria-describedby="rwp-${n}"${on?'':' disabled'}><div class="rwends"><span>0</span><span>100</span></div><div id="rwp-${n}" class="rwinfo"></div></div>`;
+  }).join('');
+  updateWeightSummary();
 }
+function updateWeightSummary(){
+  const b=curBook(),sel=selA(),used=new Set(S.used);
+  const info=b.parts.map((count,i)=>{
+    const n=i+1,on=!sel||sel.includes(n);let left=0;
+    for(let q=1;q<=count;q++)if(!used.has(n*1000+q))left++;
+    return{n,on,left,value:partWeight(n)};
+  });
+  const sum=info.reduce((t,x)=>t+(x.on?x.left*x.value:0),0);
+  info.forEach(x=>{
+    const input=$('#rw-'+x.n),out=$('#rwv-'+x.n),note=$('#rwp-'+x.n);
+    if(input){input.disabled=!x.on;input.setAttribute('aria-valuetext','出やすさ '+x.value)}
+    if(out)out.textContent=x.value;
+    const percent=sum>0&&x.on?x.left*x.value/sum*100:0;
+    if(note)note.textContent=!x.on?'出題対象外':x.value===0?'出やすさ0：出題しません':!x.left?'未修の問題はありません':'残り '+x.left+'問 ・ 次の1問 '+percent.toFixed(1)+'%';
+  });
+  const remaining=info.reduce((t,x)=>t+(x.on&&x.value>0?x.left:0),0);
+  $('#rsum').textContent='対象 '+(sel?sel.length:b.parts.length)+'部 / '+b.parts.length+'部 ・ 出題できる未修 '+remaining+'問';
+  $('#rreset').disabled=!sel&&b.parts.every((_,i)=>partWeight(i+1)===50);
+}
+function setWeight(n,value){
+  const b=curBook();
+  if(!Number.isInteger(n)||n<1||n>b.parts.length||!Number.isFinite(value))return;
+  b.weights=b.parts.map((_,i)=>partWeight(i+1,b));
+  b.weights[n-1]=Math.max(0,Math.min(100,Math.round(value)));
+  save();updateWeightSummary();render();
+}
+$('#rdl').addEventListener('input',e=>{
+  if(e.target.matches('input[data-weight]'))setWeight(+e.target.dataset.weight,+e.target.value);
+});
 function openRcfg(){const m=$('#rmsg');m.textContent='';renderRcfg();pOpen($('#rdl'))}
 function closeRcfg(){pClose($('#rdl'))}
 function togSq(n){
@@ -390,7 +460,7 @@ function togSq(n){
   m.textContent='';b.sel=nx.length===all.length?null:nx;
   save();renderRcfg();render();
 }
-function resetSel(){const b=curBook();if(!selA())return;b.sel=null;$('#rmsg').textContent='';save();renderRcfg();render();toast('↺ デフォルトに戻しました')}
+function resetSel(){const b=curBook();b.sel=null;delete b.weights;$('#rmsg').textContent='';save();renderRcfg();render();toast('↺ 全部の部・出やすさ50に戻しました')}
 $('#rdl').addEventListener('click',e=>{
   if(e.target.id==='rdl')return closeRcfg();
   const b=e.target.closest('button');if(!b)return;
@@ -681,11 +751,9 @@ function render(){
   if(tab==='calc')cUp();
 }
 function spin(rv){
-  const p=rv?cdList():pool();if(!p.length||spinning)return;
+  const p=rv?cdList():drawPool();if(!p.length||spinning)return;
   spinning=true;$(rv?'#rv':'#spin').disabled=true;
-  const q=p.slice(),pick=[];
-  for(let i=0;i<Math.min(5,p.length);i++)pick.push(q.splice(Math.floor(Math.random()*q.length),1)[0]);
-  pick.sort((x,y)=>x-y);
+  const pick=pickProblems(p,!!rv);
   const sl=document.querySelectorAll('.slot');
   sl.forEach(s=>s.classList.add('spin'));
   const iv=setInterval(()=>sl.forEach(s=>s.textContent=lab(p[Math.floor(Math.random()*p.length)])),70);
@@ -873,26 +941,26 @@ document.addEventListener('touchend',dEnd);
 document.addEventListener('mouseup',dEnd);
 document.addEventListener('touchcancel',dCancel);
 const TABS=['roulette','calc','log','other'];
-function go(t){
+function go(t,dir){
   const o=Math.max(0,TABS.includes(tab)?TABS.indexOf(tab):3),n=TABS.includes(t)?TABS.indexOf(t):3;
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
-  anim(n>o?1:-1,40,.22);
+  anim(dir===1||dir===-1?dir:(n>o?1:-1),40,.22);
 }
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#ndl'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#drw,#ndl'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
   const p=e.changedTouches[0],dx=p.clientX-sw.x,dy=p.clientY-sw.y;sw=null;
   if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.6)return;
-  const current=drOpen?3:(TABS.includes(tab)?TABS.indexOf(tab):3);
-  const i=current+(dx<0?1:-1);
-  if(i<0||i>=TABS.length)return;
-  if(TABS[i]==='other')openDrawer();
-  else{if(drOpen)closeDrawer();go(TABS[i])}
+  const cycle=TABS.slice(0,3),current=cycle.indexOf(tab);
+  if(current<0||drOpen)return;
+  const direction=dx<0?1:-1;
+  go(cycle[(current+direction+cycle.length)%cycle.length],direction);
 },{passive:true});
+document.addEventListener('touchcancel',()=>{sw=null},{passive:true});
 setInterval(()=>{const t=$('#tm');if(t&&S.act)t.textContent=fmt(el())},500);
 render();
 maybeGreet();
