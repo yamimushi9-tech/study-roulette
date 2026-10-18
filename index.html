@@ -151,13 +151,12 @@ details.pf>summary{cursor:pointer;font-weight:700}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
 .rwdetail{margin:12px 0 14px;border-top:1px solid var(--bd);padding-top:12px}
 .rwdetail>summary{cursor:pointer;font-weight:700}
-.rw{padding:10px 0;border-top:1px solid var(--bd)}
-.rw .row label{margin:0}
-.rw output{color:var(--pri);font-weight:800;font-variant-numeric:tabular-nums}
-.rw input[type="range"]{display:block;width:100%;height:36px;margin:6px 0 0;padding:0;border:0;background:transparent;accent-color:var(--pri)}
+.rw{display:grid;grid-template-columns:3.6em minmax(0,1fr) 2.2em;align-items:center;column-gap:8px;padding:4px 0;border-top:1px solid var(--bd)}
+.rw label{margin:0;white-space:nowrap}
+.rw output{text-align:right;color:var(--pri);font-weight:800;font-variant-numeric:tabular-nums}
+.rw input[type="range"]{display:block;min-width:0;width:100%;height:36px;margin:0;padding:0;border:0;background:transparent;accent-color:var(--pri)}
 .rw input:disabled{opacity:.4}
-.rw .rwends{display:flex;justify-content:space-between;color:var(--mu);font-size:12px}
-.rw .rwinfo{margin-top:4px;color:var(--mu);font-size:12px}
+.rw .rwinfo{grid-column:1/-1;margin:0;color:var(--mu);font-size:12px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -214,7 +213,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <div class="sq" id="rsq"></div>
     <details class="rwdetail">
       <summary>🎚 部ごとの出やすさ（0〜100）</summary>
-      <p class="mu">50が標準、0は出題しません。100は50の2倍の重みです。実際の確率は残り問題数や他の部の設定で変わります。</p>
+      <p class="mu">0〜100で調整。0は出題なし、50が標準、100は50の2倍の重みです。</p>
       <div id="rweights"></div>
       <p class="mu">「次の1問」は、今の未修問題から最初に1問選ぶ場合の確率です。5問は重複なしで抽選します。設定は教材ごとに自動保存します。</p>
     </details>
@@ -418,7 +417,7 @@ function renderRcfg(){
   }).join('');
   $('#rweights').innerHTML=b.parts.map((c,i)=>{
     const n=i+1,on=!sel||sel.includes(n),value=partWeight(n);
-    return `<div class="rw"><div class="row"><label for="rw-${n}">第${n}部</label><output id="rwv-${n}" for="rw-${n}">${value}</output></div><input id="rw-${n}" data-weight="${n}" type="range" min="0" max="100" step="1" value="${value}" aria-describedby="rwp-${n}"${on?'':' disabled'}><div class="rwends"><span>0</span><span>100</span></div><div id="rwp-${n}" class="rwinfo"></div></div>`;
+    return `<div class="rw"><label for="rw-${n}">第${n}部</label><input id="rw-${n}" data-weight="${n}" type="range" min="0" max="100" step="1" value="${value}" aria-describedby="rwp-${n}"${on?'':' disabled'}><output id="rwv-${n}" for="rw-${n}">${value}</output><div id="rwp-${n}" class="rwinfo"></div></div>`;
   }).join('');
   updateWeightSummary();
 }
