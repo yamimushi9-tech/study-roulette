@@ -154,7 +154,11 @@ details.pf>summary{cursor:pointer;font-weight:700}
 .rw{display:grid;grid-template-columns:3.6em minmax(0,1fr) 2.2em;align-items:center;column-gap:8px;padding:4px 0;border-top:1px solid var(--bd)}
 .rw label{margin:0;white-space:nowrap}
 .rw output{text-align:right;color:var(--pri);font-weight:800;font-variant-numeric:tabular-nums}
-.rw input[type="range"]{display:block;min-width:0;width:100%;height:36px;margin:0;padding:0;border:0;background:transparent;accent-color:var(--pri)}
+.rw input[type="range"]{display:block;min-width:0;width:100%;height:36px;margin:0;padding:0;border:0;background:transparent;accent-color:var(--pri);-webkit-appearance:none;appearance:none;cursor:pointer}
+.rw input[type="range"]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(to right,var(--pri) 0%,var(--pri) var(--rw-fill,50%),var(--bd) var(--rw-fill,50%),var(--bd) 100%)}
+.rw input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;box-sizing:border-box;width:26px;height:26px;margin-top:-10px;border:3px solid #fff;border-radius:50%;background:var(--pri);box-shadow:0 0 0 2px var(--pri),0 2px 6px rgba(0,0,0,.3)}
+.rw input[type="range"]::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(to right,var(--pri) 0%,var(--pri) var(--rw-fill,50%),var(--bd) var(--rw-fill,50%),var(--bd) 100%)}
+.rw input[type="range"]::-moz-range-thumb{box-sizing:border-box;width:26px;height:26px;border:3px solid #fff;border-radius:50%;background:var(--pri);box-shadow:0 0 0 2px var(--pri),0 2px 6px rgba(0,0,0,.3)}
 .rw input:disabled{opacity:.4}
 .rw .rwinfo{grid-column:1/-1;margin:0;color:var(--mu);font-size:12px;line-height:1.4}
 </style>
@@ -431,7 +435,7 @@ function updateWeightSummary(){
   const sum=info.reduce((t,x)=>t+(x.on?x.left*x.value:0),0);
   info.forEach(x=>{
     const input=$('#rw-'+x.n),out=$('#rwv-'+x.n),note=$('#rwp-'+x.n);
-    if(input){input.disabled=!x.on;input.setAttribute('aria-valuetext','出やすさ '+x.value)}
+    if(input){input.disabled=!x.on;input.style.setProperty('--rw-fill',x.value+'%');input.setAttribute('aria-valuetext','出やすさ '+x.value)}
     if(out)out.textContent=x.value;
     const percent=sum>0&&x.on?x.left*x.value/sum*100:0;
     if(note)note.textContent=!x.on?'出題対象外':x.value===0?'出やすさ0：出題しません':!x.left?'未修の問題はありません':'残り '+x.left+'問 ・ 次の1問 '+percent.toFixed(1)+'%';
