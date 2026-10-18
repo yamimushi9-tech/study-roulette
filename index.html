@@ -450,6 +450,23 @@ function setWeight(n,value){
 $('#rdl').addEventListener('input',e=>{
   if(e.target.matches('input[data-weight]'))setWeight(+e.target.dataset.weight,+e.target.value);
 });
+// 指やマウスで調整を終えたとき、中央付近なら標準の50に吸着。
+// キーボードの矢印操作では1刻みの微調整を維持する。
+$('#rdl').addEventListener('keydown',e=>{
+  if(e.target.matches('input[data-weight]'))e.target.dataset.weightKeyboard='1';
+});
+$('#rdl').addEventListener('pointerdown',e=>{
+  if(e.target.matches('input[data-weight]'))delete e.target.dataset.weightKeyboard;
+});
+$('#rdl').addEventListener('change',e=>{
+  const input=e.target;
+  if(!input.matches('input[data-weight]')||input.dataset.weightKeyboard)return;
+  const value=+input.value;
+  if(value>=45&&value<=55){
+    input.value='50';
+    setWeight(+input.dataset.weight,50);
+  }
+});
 function openRcfg(){const m=$('#rmsg');m.textContent='';renderRcfg();pOpen($('#rdl'))}
 function closeRcfg(){pClose($('#rdl'))}
 function togSq(n){
