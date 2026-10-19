@@ -1007,6 +1007,20 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     .memo-tools input { background:var(--card); }
     .memo-count { margin:7px 2px 0; }
     .memo-pin { font-size:12px; color:var(--pri); margin-bottom:5px; }
+    .memo-help { margin:5px 2px 0; }
+    .memo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; align-items:start; }
+    .memo-grid .nc { margin:0; touch-action:pan-y; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; }
+    .memo-grid .nc.memo-placeholder { opacity:.22; outline:2px dashed var(--pri); outline-offset:-2px; }
+    .memo-drag-ghost { position:fixed; z-index:260; pointer-events:none; margin:0; opacity:.96; transform:scale(1.04) rotate(-1.5deg); box-shadow:0 12px 32px rgba(0,0,0,.35); }
+    .memo-drag-label { color:var(--pri); font-size:12px; font-weight:700; margin-bottom:6px; }
+    body.memo-dragging { cursor:grabbing; user-select:none; -webkit-user-select:none; overscroll-behavior-y:none; }
+    body.memo-dragging #nnew { visibility:hidden; }
+    body.memo-dragging #quick-nav { pointer-events:none; }
+    #memo-trash { position:fixed; z-index:270; left:50%; bottom:calc(92px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); display:flex; align-items:center; justify-content:center; gap:8px; max-width:calc(100% - 28px); min-height:58px; padding:12px 22px; border:2px dashed var(--D); border-radius:999px; background:var(--card); color:var(--D); font-weight:700; white-space:nowrap; box-shadow:0 6px 24px rgba(0,0,0,.25); }
+    #memo-trash[hidden], #memo-undo[hidden] { display:none; }
+    #memo-trash.over { background:var(--D); color:var(--pt); border-style:solid; transform:translateX(-50%) scale(1.06); }
+    #memo-undo { position:fixed; z-index:190; left:50%; bottom:calc(96px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); width:max-content; max-width:calc(100% - 28px); display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--bd); border-radius:16px; background:var(--card); color:var(--tx); box-shadow:0 6px 24px rgba(0,0,0,.3); font-size:14px; }
+    #memo-undo button { padding:8px 12px; color:var(--pri); font-weight:700; }
     #ndl .nh { flex-wrap:wrap; }
     #ndl #nb { padding:10px 12px; font-size:14px; }
     #ndl #nd { flex:1; min-width:80px; font-size:12px; }
@@ -1039,23 +1053,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
 
   let query = '';
   const match = value => String(value).normalize('NFKC').toLocaleLowerCase('ja');
+  const noteRank = n => Number.isFinite(n.order) ? n.order : -(Number(n.ts) || 0);
+  const orderedNotes = () => notesArr().slice().sort((a,b) => Number(!!b.pin)-Number(!!a.pin) || noteRank(a)-noteRank(b) || b.ts-a.ts || a.id.localeCompare(b.id));
   vMemo = function () {
-    const all = notesArr().slice();
+    const all = orderedNotes();
     const words = match(query).trim().split(/\s+/).filter(Boolean);
-    const list = all.filter(n => words.every(w => match(n.body).includes(w)))
-      .sort((a,b) => Number(!!b.pin)-Number(!!a.pin) || b.ts-a.ts);
-    const tools = `<div class="memo-tools"><input id="memo-search" type="search" aria-label="メモを検索" placeholder="🔍 メモを検索" value="${esc(query)}"><p class="mu memo-count">${words.length ? list.length+' / '+all.length : all.length}件${all.some(n=>n.pin)?' ・ ピン留めを先に表示':''}</p></div>`;
+    const list = all.filter(n => words.every(w => match(n.body).includes(w)));
+    const tools = `<div class="memo-tools"><input id="memo-search" type="search" aria-label="メモを検索" placeholder="🔍 メモを検索" value="${esc(query)}"><p class="mu memo-count">${words.length ? list.length+' / '+all.length : all.length}件${all.some(n=>n.pin)?' ・ ピン留めを先に表示':''}</p>${list.length?'<p class="mu memo-help">長押しで並べ替え・ゴミ箱へ移動</p>':''}</div>`;
     const fab = '<button id="nnew" class="fab" aria-label="新しいメモ">＋</button>';
     if (!list.length) return tools + '<p class="mu c" style="margin:40px 0">' +
       (all.length ? '一致するメモがありません。' : 'まだメモがありません。<br>右下の「＋」で作れます。') + '</p>' + fab;
-    const columns = [[],[]], heights = [0,0];
-    list.forEach(n => {
+    const cards = list.map(n => {
       const title = noteTitle(n.body), body = noteBody(n.body);
-      const col = heights[0] <= heights[1] ? 0 : 1;
-      columns[col].push(`<button class="nc" data-nid="${esc(n.id)}">${n.pin?'<div class="memo-pin">📌 ピン留め</div>':''}<div class="nt1">${esc(title)}</div><div class="nb${body?'':' mu'}">${body?esc(body):'テキストなし'}</div><div class="nd">${memoDate(n.ts)}</div></button>`);
-      heights[col] += 70 + Math.min(4,body?body.split('\n').length:1)*22 + (title.length>14?24:0) + (n.pin?23:0);
+      return `<button class="nc" data-nid="${esc(n.id)}" data-pin="${n.pin?'1':'0'}" draggable="false">${n.pin?'<div class="memo-pin">📌 ピン留め</div>':''}<div class="nt1">${esc(title)}</div><div class="nb${body?'':' mu'}">${body?esc(body):'テキストなし'}</div><div class="nd">${memoDate(n.ts)}</div></button>`;
     });
-    return tools + `<div class="mg"><div class="mc">${columns[0].join('')}</div><div class="mc">${columns[1].join('')}</div></div>` + fab;
+    return tools + `<div class="memo-grid" id="memo-grid">${cards.join('')}</div>` + fab;
   };
   $('#app').addEventListener('input', e => {
     if (e.target.id !== 'memo-search') return;
@@ -1078,6 +1090,242 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
       if (start !== null) replacement.setSelectionRange(start,end);
     }
   }
+
+  // 長押し後だけスクロールを止めてドラッグする。短いタップは従来どおりメモを開く。
+  const trash = document.createElement('div');
+  trash.id = 'memo-trash';
+  trash.hidden = true;
+  trash.setAttribute('role','status');
+  trash.setAttribute('aria-live','polite');
+  trash.textContent = '🗑 ここに離して削除';
+  document.body.appendChild(trash);
+  const undoBox = document.createElement('div');
+  undoBox.id = 'memo-undo';
+  undoBox.hidden = true;
+  undoBox.innerHTML = '<span role="status" aria-live="polite">メモを削除しました</span><button type="button">元に戻す</button>';
+  document.body.appendChild(undoBox);
+  let memoDrag = null, undoNote = null, undoTimer, ignoreMouseUntil = 0, blockClickUntil = 0, blockPoint = null;
+
+  const inside = (r,x,y,pad=0) => x>=r.left-pad && x<=r.right+pad && y>=r.top-pad && y<=r.bottom+pad;
+  const memoSnapshot = () => S.notes.map(n => n && typeof n==='object' ? {...n} : n);
+  function persistMemo(before) {
+    save();
+    if (checkSaved()) return true;
+    S.notes = before;
+    toast('保存できませんでした。変更を取り消しました');
+    return false;
+  }
+  function commitMemoOrder(ids,movingId,pinned) {
+    const all = orderedNotes(), byId = new Map(all.map(n=>[n.id,n]));
+    const note = byId.get(movingId);
+    if (!note || new Set(ids).size!==ids.length || !ids.every(id=>byId.has(id))) return false;
+    const before = memoSnapshot(), selected = new Set(ids);
+    note.pin = !!pinned;
+    let i = 0;
+    // 検索で隠れているメモは、その位置と相対順序を保つ。
+    all.map(n=>selected.has(n.id)?byId.get(ids[i++]):n).forEach((n,index)=>{n.order=index});
+    return persistMemo(before);
+  }
+  function hideUndo() {
+    clearTimeout(undoTimer);
+    undoNote = null;
+    undoBox.hidden = true;
+  }
+  function trashMemo(id) {
+    const index = S.notes.findIndex(n=>n && n.id===id);
+    if (index<0) return;
+    const before = S.notes.slice(), note = S.notes[index];
+    S.notes = S.notes.filter(n=>n!==note);
+    if (!persistMemo(before)) return;
+    hideUndo();
+    undoNote = {note,index};
+    undoBox.hidden = false;
+    undoTimer = setTimeout(hideUndo,6500);
+  }
+  undoBox.querySelector('button').addEventListener('click',()=>{
+    if (!undoNote) return;
+    const {note,index} = undoNote, before = S.notes.slice();
+    if (S.notes.some(n=>n && n.id===note.id)) { hideUndo(); return; }
+    S.notes.splice(Math.min(index,S.notes.length),0,note);
+    if (!persistMemo(before)) return;
+    hideUndo();
+    render();
+    toast('メモを元に戻しました');
+  });
+  function clearMemoDrag() {
+    const d = memoDrag;
+    if (!d) return null;
+    clearTimeout(d.timer);
+    cancelAnimationFrame(d.frame);
+    if (d.ghost) d.ghost.remove();
+    d.card.classList.remove('memo-placeholder');
+    d.card.removeAttribute('aria-grabbed');
+    document.body.classList.remove('memo-dragging');
+    trash.hidden = true;
+    trash.classList.remove('over');
+    memoDrag = null;
+    return d;
+  }
+  function cancelMemoDrag(redraw=true) {
+    const d = clearMemoDrag();
+    if (d && d.active) {
+      blockMemoClick(d);
+      if (redraw) render();
+    }
+  }
+  function blockMemoClick(d) {
+    blockPoint = {x:d.x,y:d.y};
+    blockClickUntil = Date.now()+450;
+  }
+  function pointFor(e,d,ending=false) {
+    if (!d.touch) return e;
+    return Array.from(ending?e.changedTouches:e.touches).find(p=>p.identifier===d.touchId);
+  }
+  function memoStart(e) {
+    const touch = e.type==='touchstart';
+    if (touch) ignoreMouseUntil = Date.now()+900;
+    if (!touch && (e.button!==0 || Date.now()<ignoreMouseUntil)) return;
+    if (touch && e.touches.length!==1) { cancelMemoDrag(); return; }
+    const card = e.target.closest('.memo-grid .nc[data-nid]');
+    if (!card || tab!=='memo' || curN || drOpen) return;
+    cancelMemoDrag();
+    const p = touch ? e.touches[0] : e;
+    memoDrag = {id:card.dataset.nid,card,grid:card.parentElement,touch,touchId:p.identifier,x:p.clientX,y:p.clientY,startX:p.clientX,startY:p.clientY,active:false,pinned:card.dataset.pin==='1',originalPin:card.dataset.pin==='1'};
+    memoDrag.timer = setTimeout(beginMemoDrag,380);
+  }
+  function beginMemoDrag() {
+    const d = memoDrag;
+    if (!d || tab!=='memo' || !d.card.isConnected) return cancelMemoDrag(false);
+    const r = d.card.getBoundingClientRect();
+    d.active = true;
+    d.ids = Array.from(d.grid.children,c=>c.dataset.nid);
+    d.dx = d.x-r.left;
+    d.dy = d.y-r.top;
+    d.ghost = d.card.cloneNode(true);
+    d.ghost.removeAttribute('data-nid');
+    d.ghost.removeAttribute('data-pin');
+    d.ghost.setAttribute('aria-hidden','true');
+    d.ghost.tabIndex = -1;
+    d.ghost.classList.add('memo-drag-ghost');
+    d.ghost.style.width = r.width+'px';
+    d.label = document.createElement('div');
+    d.label.className = 'memo-drag-label';
+    d.label.hidden = true;
+    d.ghost.prepend(d.label);
+    document.body.appendChild(d.ghost);
+    d.card.classList.add('memo-placeholder');
+    d.card.setAttribute('aria-grabbed','true');
+    document.body.classList.add('memo-dragging');
+    trash.hidden = false;
+    swBlock = true;
+    try { if (navigator.vibrate) navigator.vibrate(20); } catch (_) {}
+    positionMemoDrag();
+    d.frame = requestAnimationFrame(scrollMemoDrag);
+  }
+  function positionMemoDrag() {
+    const d = memoDrag;
+    if (!d || !d.active) return;
+    d.ghost.style.left = (d.x-d.dx)+'px';
+    d.ghost.style.top = (d.y-d.dy-5)+'px';
+    d.overTrash = inside(trash.getBoundingClientRect(),d.x,d.y);
+    trash.classList.toggle('over',d.overTrash);
+    const trashText = d.overTrash?'🗑 離すと削除':'🗑 ここに離して削除';
+    if (trash.textContent!==trashText) trash.textContent = trashText;
+    if (d.overTrash || !inside(d.grid.getBoundingClientRect(),d.x,d.y,24)) return;
+    if (inside(d.card.getBoundingClientRect(),d.x,d.y,3)) return;
+    const cards = Array.from(d.grid.children);
+    let target = null, distance = Infinity;
+    cards.forEach(card=>{
+      if (card===d.card) return;
+      const r = card.getBoundingClientRect();
+      const dx = Math.max(r.left-d.x,0,d.x-r.right), dy = Math.max(r.top-d.y,0,d.y-r.bottom);
+      const dist = dx*dx+dy*dy;
+      if (dist<distance) { target=card; distance=dist; }
+    });
+    if (!target) return;
+    const from = cards.indexOf(d.card), to = cards.indexOf(target);
+    d.grid.insertBefore(d.card,to>from?target.nextSibling:target);
+    d.pinned = target.dataset.pin==='1';
+    d.label.hidden = d.pinned===d.originalPin;
+    d.label.textContent = d.pinned?'📌 ピン留めへ移動':'ピン留めを解除して移動';
+  }
+  function scrollMemoDrag(time) {
+    const d = memoDrag;
+    if (!d || !d.active) return;
+    const dt = d.lastFrame ? Math.min(32,time-d.lastFrame)/16.7 : 1;
+    d.lastFrame = time;
+    const nav = $('#nav'), bottom = $('#quick-nav');
+    const topEdge = (nav?nav.getBoundingClientRect().bottom:0)+48;
+    const bottomEdge = window.innerHeight-(bottom?bottom.getBoundingClientRect().height:76)-58;
+    let speed = 0;
+    if (!d.overTrash) {
+      if (d.y<topEdge) speed = -Math.min(16,(topEdge-d.y)*.25);
+      else if (d.y>bottomEdge) speed = Math.min(16,(d.y-bottomEdge)*.25);
+    }
+    if (speed) window.scrollBy(0,speed*dt);
+    positionMemoDrag();
+    d.frame = requestAnimationFrame(scrollMemoDrag);
+  }
+  function memoMove(e) {
+    const d = memoDrag;
+    if (!d || (e.type==='touchmove')!==d.touch) return;
+    if (d.touch && e.touches.length!==1) { cancelMemoDrag(); return; }
+    const p = pointFor(e,d);
+    if (!p) return;
+    d.x = p.clientX;
+    d.y = p.clientY;
+    if (!d.active) {
+      if (Math.hypot(d.x-d.startX,d.y-d.startY)>10) cancelMemoDrag(false);
+      return;
+    }
+    if (e.cancelable) e.preventDefault();
+    positionMemoDrag();
+  }
+  function memoEnd(e) {
+    const d = memoDrag;
+    if (!d || (e.type==='touchend')!==d.touch) return;
+    const p = pointFor(e,d,true);
+    if (!p) return;
+    if (!d.active) { clearMemoDrag(); return; }
+    if (e.cancelable) e.preventDefault();
+    d.x = p.clientX;
+    d.y = p.clientY;
+    positionMemoDrag();
+    const overTrash = d.overTrash;
+    const inGrid = inside(d.grid.getBoundingClientRect(),d.x,d.y,24);
+    const ids = Array.from(d.grid.children,c=>c.dataset.nid);
+    blockMemoClick(d);
+    clearMemoDrag();
+    if (overTrash) trashMemo(d.id);
+    else if (inGrid && (d.ids.some((id,i)=>id!==ids[i]) || d.pinned!==d.originalPin)) {
+      if (commitMemoOrder(ids,d.id,d.pinned)) toast('並び順を保存しました');
+    }
+    render();
+  }
+  const app = $('#app');
+  app.addEventListener('touchstart',memoStart,{passive:true});
+  app.addEventListener('mousedown',memoStart);
+  document.addEventListener('touchmove',memoMove,{passive:false});
+  document.addEventListener('mousemove',memoMove);
+  document.addEventListener('touchend',memoEnd,{passive:false});
+  document.addEventListener('mouseup',memoEnd);
+  document.addEventListener('touchcancel',()=>cancelMemoDrag());
+  document.addEventListener('touchstart',e=>{if(e.touches.length>1)cancelMemoDrag()},{passive:true});
+  document.addEventListener('click',e=>{
+    const blocked = memoDrag && memoDrag.active || blockPoint && Date.now()<blockClickUntil && Math.hypot(e.clientX-blockPoint.x,e.clientY-blockPoint.y)<32;
+    if (!blocked || !e.target.closest('.nc[data-nid]')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    blockClickUntil = 0;
+  },true);
+  app.addEventListener('contextmenu',e=>{if(e.target.closest('.nc[data-nid]'))e.preventDefault()});
+  app.addEventListener('dragstart',e=>{if(e.target.closest('.nc[data-nid]'))e.preventDefault()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')cancelMemoDrag()});
+  window.addEventListener('blur',()=>cancelMemoDrag());
+  window.addEventListener('scroll',()=>{if(memoDrag && !memoDrag.active)cancelMemoDrag(false)},{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelMemoDrag()});
+  const beforeMemoRender = render;
+  render = function () { cancelMemoDrag(false); beforeMemoRender(); };
 
   const pinButton = document.createElement('button');
   pinButton.id = 'npin';
@@ -1142,6 +1390,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
   pinButton.addEventListener('click', () => {
     if (!curN) return;
     curN.pin = !curN.pin;
+    curN.order = Math.min(0,...notesArr().map(noteRank))-1;
     pinState();
     flushNote();
   });
