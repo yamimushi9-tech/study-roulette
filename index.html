@@ -875,7 +875,11 @@ $('#app').addEventListener('click',e=>{
   if(id==='sch')return schOne();
   if(id==='spin')spin();
   else if(id==='rv')spin(1);
-  else if(b.dataset.g){a.r[b.dataset.n]=b.dataset.g;save();render()}
+  else if(b.dataset.g){
+    const n=b.dataset.n,g=b.dataset.g;
+    if(a.r[n]===g)delete a.r[n];else a.r[n]=g;
+    save();render();
+  }
   else if(id==='tgo'){if(a.t0){a.ms+=Date.now()-a.t0;a.t0=null}else a.t0=Date.now();save();render()}
   else if(id==='trs'){a.ms=0;a.t0=null;save();render()}
   else if(id==='fin'){
