@@ -1011,8 +1011,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     .memo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; align-items:start; }
     .memo-grid .nc { margin:0; touch-action:pan-y; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; }
     .memo-grid .nc.memo-placeholder { opacity:.22; outline:2px dashed var(--pri); outline-offset:-2px; }
-    .memo-drag-ghost { position:fixed; z-index:260; pointer-events:none; margin:0; opacity:.96; transform:scale(1.04) rotate(-1.5deg); box-shadow:0 12px 32px rgba(0,0,0,.35); }
-    .memo-drag-label { color:var(--pri); font-size:12px; font-weight:700; margin-bottom:6px; }
+    .memo-drag-ghost { position:fixed; z-index:260; pointer-events:none; margin:0; opacity:.96; transform:scale(1.04); box-shadow:0 12px 32px rgba(0,0,0,.35); }
     body.memo-dragging { cursor:grabbing; user-select:none; -webkit-user-select:none; overscroll-behavior-y:none; }
     body.memo-dragging #nnew { visibility:hidden; }
     body.memo-dragging #quick-nav { pointer-events:none; }
@@ -1115,12 +1114,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     toast('保存できませんでした。変更を取り消しました');
     return false;
   }
-  function commitMemoOrder(ids,movingId,pinned) {
+  function commitMemoOrder(ids,movingId) {
     const all = orderedNotes(), byId = new Map(all.map(n=>[n.id,n]));
     const note = byId.get(movingId);
     if (!note || new Set(ids).size!==ids.length || !ids.every(id=>byId.has(id))) return false;
     const before = memoSnapshot(), selected = new Set(ids);
-    note.pin = !!pinned;
     let i = 0;
     // 検索で隠れているメモは、その位置と相対順序を保つ。
     all.map(n=>selected.has(n.id)?byId.get(ids[i++]):n).forEach((n,index)=>{n.order=index});
@@ -1190,7 +1188,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     if (!card || tab!=='memo' || curN || drOpen) return;
     cancelMemoDrag();
     const p = touch ? e.touches[0] : e;
-    memoDrag = {id:card.dataset.nid,card,grid:card.parentElement,touch,touchId:p.identifier,x:p.clientX,y:p.clientY,startX:p.clientX,startY:p.clientY,active:false,pinned:card.dataset.pin==='1',originalPin:card.dataset.pin==='1'};
+    memoDrag = {id:card.dataset.nid,card,grid:card.parentElement,touch,touchId:p.identifier,x:p.clientX,y:p.clientY,startX:p.clientX,startY:p.clientY,active:false,pinGroup:card.dataset.pin};
     memoDrag.timer = setTimeout(beginMemoDrag,380);
   }
   function beginMemoDrag() {
@@ -1208,10 +1206,6 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     d.ghost.tabIndex = -1;
     d.ghost.classList.add('memo-drag-ghost');
     d.ghost.style.width = r.width+'px';
-    d.label = document.createElement('div');
-    d.label.className = 'memo-drag-label';
-    d.label.hidden = true;
-    d.ghost.prepend(d.label);
     document.body.appendChild(d.ghost);
     d.card.classList.add('memo-placeholder');
     d.card.setAttribute('aria-grabbed','true');
@@ -1234,9 +1228,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     if (d.overTrash || !inside(d.grid.getBoundingClientRect(),d.x,d.y,24)) return;
     if (inside(d.card.getBoundingClientRect(),d.x,d.y,3)) return;
     const cards = Array.from(d.grid.children);
+    // ピン留めを先頭に保ち、並べ替えでは固定状態を変更しない。
+    const hit = cards.find(card=>inside(card.getBoundingClientRect(),d.x,d.y));
+    if (hit && hit.dataset.pin!==d.pinGroup) return;
     let target = null, distance = Infinity;
     cards.forEach(card=>{
-      if (card===d.card) return;
+      if (card===d.card || card.dataset.pin!==d.pinGroup) return;
       const r = card.getBoundingClientRect();
       const dx = Math.max(r.left-d.x,0,d.x-r.right), dy = Math.max(r.top-d.y,0,d.y-r.bottom);
       const dist = dx*dx+dy*dy;
@@ -1245,9 +1242,6 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     if (!target) return;
     const from = cards.indexOf(d.card), to = cards.indexOf(target);
     d.grid.insertBefore(d.card,to>from?target.nextSibling:target);
-    d.pinned = target.dataset.pin==='1';
-    d.label.hidden = d.pinned===d.originalPin;
-    d.label.textContent = d.pinned?'📌 ピン留めへ移動':'ピン留めを解除して移動';
   }
   function scrollMemoDrag(time) {
     const d = memoDrag;
@@ -1297,8 +1291,8 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
     blockMemoClick(d);
     clearMemoDrag();
     if (overTrash) trashMemo(d.id);
-    else if (inGrid && (d.ids.some((id,i)=>id!==ids[i]) || d.pinned!==d.originalPin)) {
-      if (commitMemoOrder(ids,d.id,d.pinned)) toast('並び順を保存しました');
+    else if (inGrid && d.ids.some((id,i)=>id!==ids[i])) {
+      if (commitMemoOrder(ids,d.id)) toast('並び順を保存しました');
     }
     render();
   }
