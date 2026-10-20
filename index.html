@@ -98,7 +98,7 @@ h3{margin:18px 2px 8px;font-size:15px}
 .kp button{padding:0;height:58px;font-size:22px;font-weight:700;border-radius:14px;user-select:none;-webkit-user-select:none}
 .kp .op{color:var(--pri);border-color:var(--pri)}
 .kp .ac{color:var(--D);border-color:var(--D)}
-.kp .eq{grid-column:1/-1;background:var(--pri);color:var(--pt);border-color:var(--pri)}
+.kp .eq{grid-column:span 2;background:var(--pri);color:var(--pt);border-color:var(--pri)}
 .tb{align-self:stretch;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px;text-align:left}
 .hb{padding:3px 11px;font-size:13px;font-weight:700;border-radius:999px;color:var(--pri);border-color:var(--pri);background:transparent}
 .tcard{position:relative}
@@ -530,9 +530,9 @@ function vSet(){
   +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
   +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
 }
-const OPS='+−×÷',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.']];
+const OPS='+−×÷^',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.'],['xʸ','^','op','累乗（xのy乗）'],['×10ˣ','EE','op','10のべき乗を入力']];
 const hist=()=>{if(!S.calc||!Array.isArray(S.calc.hist))S.calc={hist:[]};return S.calc.hist};
-const grp=s=>s.replace(/(\d+)(\.\d*)?/g,(m,a,b)=>a.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(b||''));
+const grp=s=>s.replace(/(\d+)(\.\d*)?/g,(m,a,b)=>a.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(b||'')).replace(/e([+−-]?\d*)/gi,(_,exponent)=>'×10^'+exponent.replace('-','−'));
 function evalS(s){
   let i=0;
   const bad=()=>{throw new Error('x')};
@@ -544,30 +544,55 @@ function evalS(s){
   function tm(){
     const f=fc();let v=f.v,n=0;
     while(s[i]==='×'||s[i]==='÷'){
-      const o=s[i++],g=fc();n++;
+      const o=s[i++],g=fc(),before=v;n++;
       if(o==='×')v*=g.v;else{if(g.v===0)throw new Error('div');v/=g.v}
+      if(!Number.isFinite(v))throw new Error('big');
+      if(v===0&&before!==0&&g.v!==0)throw new Error('small');
     }
     return{v:v,p:f.p&&!n};
   }
   function fc(){
     if(s[i]==='−'){i++;const f=fc();return{v:-f.v,p:f.p}}
     if(s[i]==='+'){i++;return fc()}
+    return power();
+  }
+  function power(){
+    const f=atom();
+    if(s[i]!=='^')return f;
+    i++;
+    const g=fc();
+    if(f.v===0&&g.v<0)throw new Error('div');
+    const v=Math.pow(f.v,g.v);
+    if(Number.isNaN(v))throw new Error('real');
+    if(!Number.isFinite(v))throw new Error('big');
+    if(v===0&&f.v!==0)throw new Error('small');
+    return{v:v,p:false};
+  }
+  function atom(){
     let v,p=false;
     if(s[i]==='('){i++;v=ex();if(s[i]!==')')bad();i++}
-    else{const m=/^(\d+\.?\d*|\.\d+)/.exec(s.slice(i));if(!m)bad();v=parseFloat(m[1]);i+=m[1].length}
-    while(s[i]==='%'){i++;v/=100;p=true}
+    else{
+      // 科学表記は1つの数として読む（例: 6÷2e3 = 6÷2000）。
+      const m=/^(\d+\.?\d*|\.\d+)(?:e([+−-]?\d+))?/.exec(s.slice(i));
+      if(!m)bad();
+      v=Number(m[0].replace('−','-'));i+=m[0].length;
+      if(v===0&&Number(m[1])!==0)throw new Error('small');
+    }
+    if(!Number.isFinite(v))throw new Error('big');
+    while(s[i]==='%'){i++;const before=v;v/=100;if(v===0&&before!==0)throw new Error('small');p=true}
     return{v:v,p:p};
   }
   const v=ex();if(i!==s.length)bad();return v;
 }
 function fmtR(v){
-  if(!isFinite(v)||Math.abs(v)>=1e15)throw new Error('big');
-  let t=String(Number(v.toPrecision(12)));
-  if(/e/i.test(t))t=Math.abs(v)<1e-9?'0':v.toFixed(12).replace(/\.?0+$/,'');
-  return t.replace('-','−');
+  if(Number.isNaN(v))throw new Error('real');
+  if(!Number.isFinite(v))throw new Error('big');
+  const n=Number(v.toPrecision(12)),a=Math.abs(n);
+  const t=a>0&&(a>=1e12||a<1e-6)?n.toExponential():String(n);
+  return t.replace(/e\+/,'e').replace(/-/g,'−');
 }
 function norm(e){e=e.replace(/[+−×÷.]+$/,'');const o=(e.match(/\(/g)||[]).length,c=(e.match(/\)/g)||[]).length;return e+')'.repeat(Math.max(0,o-c))}
-const hasOp=e=>/[+−×÷()%]/.test(e.replace(/^−/,''));
+const hasOp=e=>/[+−×÷^()%e]/.test(e.replace(/^−/,''));
 function cUp(){
   const x=$('#cx'),r=$('#cr');if(!x)return;
   const t=cE?grp(cE):'0';
@@ -578,11 +603,12 @@ function cUp(){
 }
 function cEq(){
   const e=norm(cE);if(!e)return;
+  if(/(?:\^|e)[+−]?$/.test(e)){cMsg='指数を入力してください';return}
   try{
     const r=fmtR(evalS(e));
     if(hasOp(e)){const H=hist();H.unshift({e:e,r:r});H.length=Math.min(H.length,30);save()}
     cE=r;cDone=true;
-  }catch(er){cMsg=er.message==='div'?'0では割れません':er.message==='big'?'桁があふれました':'式が正しくありません'}
+  }catch(er){cMsg=er.message==='div'?'0では割れません':er.message==='big'?'数値が大きすぎます':er.message==='small'?'数値が小さすぎます':er.message==='real'?'実数の範囲では計算できません':'式が正しくありません'}
 }
 function cKey(k){
   cMsg='';
@@ -590,6 +616,23 @@ function cKey(k){
   if(k==='BS'){cE=cE.slice(0,-1);cDone=false;return cUp()}
   if(k==='='){cEq();return cUp()}
   if(cE.length>=100){cMsg='これ以上入力できません';return cUp()}
+  if(k==='EE'){
+    if(cE.length>94){cMsg='これ以上入力できません';return cUp()}
+    if(cDone||/[)%]$/.test(cE))cE='('+cE+')×10^';
+    else if(/e[+−]?\d*$/.test(cE))return cUp();
+    else cE+=(/[\d.]$/.test(cE)?'':'1')+'e';
+    cDone=false;return cUp();
+  }
+  if((k==='−'||k==='+')&&/e[+−]?$/.test(cE)){
+    cE=cE.replace(/[+−]$/,'')+k;cDone=false;return cUp();
+  }
+  if(OPS.includes(k)&&/e[+−]?$/.test(cE)){cMsg='指数を入力してください';return cUp()}
+  if(k==='.'&&/e[+−]?\d*$/.test(cE)){cMsg='小数の指数にはxʸを使ってください';return cUp()}
+  if(cDone&&(k==='^'||k==='%')&&(hasOp(cE)||cE.startsWith('−')))cE='('+cE+')';
+  else if(k==='^'){
+    const scientific=/(\d+\.?\d*|\.\d+)e[+−]?\d+$/.exec(cE);
+    if(scientific)cE=cE.slice(0,scientific.index)+'('+scientific[0]+')';
+  }
   if(/^\d$/.test(k)||k==='.'||k==='('){if(cDone){cE='';cDone=false}}
   else cDone=false;
   const l=cE.slice(-1),cur=(cE.match(/[\d.]*$/)||[''])[0];
@@ -609,8 +652,8 @@ function cKey(k){
   else if(OPS.includes(k)){
     if(!cE){if(k==='−')cE='−'}
     else if(OPS.includes(l)){
-      if(k==='−'&&(l==='×'||l==='÷'))cE+=k;
-      else{const b=cE.replace(/[+−×÷]+$/,'');cE=b?b+k:(k==='−'?'−':'')}
+      if(k==='−'&&(l==='×'||l==='÷'||l==='^'))cE+=k;
+      else{const b=cE.replace(/[+−×÷^]+$/,'');cE=b?b+k:(k==='−'?'−':'')}
     }
     else if(l==='('){if(k==='−')cE+=k}
     else cE+=k;
@@ -620,7 +663,7 @@ function cKey(k){
 function cIns(r){
   cMsg='';
   if(!cE||cDone){cE=r;cDone=true}
-  else if(/[+−×÷(]$/.test(cE))cE+=r;
+  else if(/[+−×÷^(]$/.test(cE))cE+=hasOp(r)?'('+r+')':r;
   else{cE=r;cDone=true}
   cUp();
 }
@@ -641,7 +684,7 @@ function openChain(first,next){
 }
 function vCalc(){
   const H=hist();
-  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a href="${esc(a[1])}"${a[2]?` data-first="${esc(a[2])}" data-next="${esc(a[1])}"`:''}>${a[0]}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
+  let h='<div class="card cdp"><div class="tb"><button class="hb" id="hbtn">🕘 履歴'+(H.length?' <b>'+H.length+'</b>':'')+'</button><span class="ais">'+AI.map(a=>`<a href="${esc(a[1])}"${a[2]?` data-first="${esc(a[2])}" data-next="${esc(a[1])}"`:''}>${a[0]}</a>`).join('')+'</span></div><div class="cx" id="cx"></div><div class="cr" id="cr"></div></div><div class="kp">'+KEYS.map(k=>`<button data-k="${k[1]||k[0]}"${k[2]?` class="${k[2]}"`:''}${k[3]?` aria-label="${esc(k[3])}"`:''}>${k[0]}</button>`).join('')+'<button data-k="=" class="eq">=</button></div>';
   return h;
 }
 const pad2=n=>String(n).padStart(2,'0');
