@@ -94,6 +94,8 @@ h3{margin:18px 2px 8px;font-size:15px}
 .cdp{min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
 .cx{font-size:32px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
 .cr{font-size:18px;color:var(--mu);min-height:26px;margin-top:4px;font-variant-numeric:tabular-nums}
+.cx sup,.cr sup,.hx sup,.hv sup{font-size:.65em;line-height:0;vertical-align:super}
+.exp-pending{color:var(--mu);font-weight:400}
 .kp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .kp button{padding:0;height:58px;font-size:22px;font-weight:700;border-radius:14px;user-select:none;-webkit-user-select:none}
 .kp .op{color:var(--pri);border-color:var(--pri)}
@@ -407,7 +409,7 @@ function openAdd(){
 function closeAdd(){pClose($('#mdl'))}
 function renderHist(){
   const H=hist(),c=$('#hclr');
-  $('#hlist').innerHTML=H.length?H.map((x,i)=>`<button class="hi" data-h="${i}"><span class="hx">${esc(grp(x.e))} =</span><span class="hv">${esc(grp(x.r))}</span></button>`).join(''):'<p class="mu c" style="margin:18px 0">まだ計算履歴がありません。<br>「＝」を押した計算が、ここに残ります。</p>';
+  $('#hlist').innerHTML=H.length?H.map((x,i)=>`<button class="hi" data-h="${i}"><span class="hx">${calcDisplay(x.e)} =</span><span class="hv">${calcDisplay(x.r)}</span></button>`).join(''):'<p class="mu c" style="margin:18px 0">まだ計算履歴がありません。<br>「＝」を押した計算が、ここに残ります。</p>';
   c.hidden=!H.length;c.textContent=cArm?'もう一度押すと全削除':'🗑 履歴を消す';
   c.style.color=cArm?'var(--D)':'';c.style.borderColor=cArm?'var(--D)':'';
 }
@@ -523,9 +525,85 @@ function delBook(){
   save();render();
   anim(-1,70,.34);toast('🗑 削除しました。「'+curBook().name+'」に切り替えました');
 }
+const offlineState={ready:false,phase:'checking',registration:null};
+let offlineBusy=false,offlineListeners=false,offlineTimer;
+const offlineWorkers=new WeakSet(),offlineRegistrations=new WeakSet();
+function offlineText(){
+  if(offlineState.ready)return navigator.onLine?'準備できています。次回から通信なしで開けます。':'オフラインで利用中です。記録はこの端末に保存します。';
+  if(offlineState.phase==='unsupported')return 'オフライン起動の準備には、HTTPSで公開したページを対応ブラウザで開いてください。';
+  if(!navigator.onLine)return '一度インターネットにつないで開くと、オフライン起動の準備ができます。';
+  return offlineState.phase==='checking'?'オフライン起動の準備を確認しています…':'準備できませんでした。通信がある状態で、下のボタンからやり直せます。';
+}
+function updateOfflineStatus(){
+  const text=$('#offline-status'),button=$('#offline-prepare');
+  if(text)text.textContent=offlineText();
+  if(button){button.hidden=offlineState.ready||offlineState.phase==='unsupported';button.disabled=offlineState.phase==='checking'||!navigator.onLine}
+}
+function vOfflineSettings(){
+  return `<div class="card"><label>📴 オフライン利用</label><p class="mu" id="offline-status" role="status">${esc(offlineText())}</p><p class="mu">学習記録・評価・メモは、通信の有無にかかわらず端末内に保存されます。</p><button id="offline-prepare" class="w"${offlineState.ready||offlineState.phase==='unsupported'?' hidden':''}${offlineState.phase==='checking'||!navigator.onLine?' disabled':''}>オフライン起動の準備をやり直す</button></div>`;
+}
+function requestOfflineStatus(worker,refresh=false){
+  if(!worker || worker.state!=='activated')return;
+  clearTimeout(offlineTimer);
+  offlineTimer=setTimeout(()=>{if(!offlineState.ready){offlineState.phase='error';updateOfflineStatus()}},7000);
+  try { worker.postMessage({type:refresh?'STUDY_PREPARE_OFFLINE':'STUDY_CHECK_OFFLINE'}); }
+  catch (_) {if(!offlineState.ready){offlineState.phase='error';updateOfflineStatus()}}
+}
+function watchOfflineWorker(worker){
+  if(!worker||offlineWorkers.has(worker))return;
+  offlineWorkers.add(worker);
+  const changed=()=>{
+    if(worker.state==='activated')requestOfflineStatus(worker);
+    else if(worker.state==='redundant'&&!offlineState.ready){offlineState.phase='error';updateOfflineStatus()}
+  };
+  worker.addEventListener('statechange',changed);
+  changed();
+}
+function watchOfflineRegistration(reg){
+  offlineState.registration=reg;
+  if(!offlineRegistrations.has(reg)){
+    offlineRegistrations.add(reg);
+    reg.addEventListener('updatefound',()=>watchOfflineWorker(reg.installing));
+  }
+  watchOfflineWorker(reg.installing);
+  watchOfflineWorker(reg.waiting);
+  if(reg.active)requestOfflineStatus(reg.active);
+}
+async function prepareOffline(refresh=false){
+  if(!('serviceWorker' in navigator)||!window.isSecureContext){offlineState.phase='unsupported';updateOfflineStatus();return}
+  if(!offlineListeners){
+    offlineListeners=true;
+    navigator.serviceWorker.addEventListener('message',e=>{
+      const data=e.data,reg=offlineState.registration;
+      if(!data||data.type!=='STUDY_OFFLINE_STATUS'||!reg||data.scope!==reg.scope)return;
+      clearTimeout(offlineTimer);
+      offlineState.ready=!!data.ready;
+      offlineState.phase=data.ready?'ready':'error';
+      updateOfflineStatus();
+      if(!data.ready&&navigator.onLine&&data.action==='STUDY_CHECK_OFFLINE')requestOfflineStatus(reg.active,true);
+    });
+    navigator.serviceWorker.addEventListener('controllerchange',()=>requestOfflineStatus(navigator.serviceWorker.controller));
+    window.addEventListener('offline',updateOfflineStatus);
+    window.addEventListener('online',()=>{updateOfflineStatus();prepareOffline(true)});
+  }
+  if(offlineBusy)return;
+  offlineBusy=true;
+  if(!offlineState.ready){offlineState.phase='checking';updateOfflineStatus()}
+  try {
+    const existing=await navigator.serviceWorker.getRegistration();
+    if(existing)watchOfflineRegistration(existing);
+    if(!navigator.onLine&&existing)return;
+    const reg=await navigator.serviceWorker.register('sw.js',{updateViaCache:'none'});
+    watchOfflineRegistration(reg);
+    if(refresh&&navigator.onLine)requestOfflineStatus(reg.active,true);
+    if(navigator.onLine)reg.update().catch(()=>{});
+  } catch (_) {
+    if(!offlineState.ready){offlineState.phase='error';updateOfflineStatus()}
+  } finally { offlineBusy=false; }
+}
 function vSet(){
   const b=curBook(),many=S.books.length>1;
-  return `<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
+  return vOfflineSettings()+`<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
   +setupForm('各部の問題数（'+esc(b.name)+'）')
   +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
   +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
@@ -593,13 +671,55 @@ function fmtR(v){
 }
 function norm(e){e=e.replace(/[+−×÷.]+$/,'');const o=(e.match(/\(/g)||[]).length,c=(e.match(/\)/g)||[]).length;return e+')'.repeat(Math.max(0,o-c))}
 const hasOp=e=>/[+−×÷^()%e]/.test(e.replace(/^−/,''));
+// 表示専用。計算・入力・履歴の保存に使う文字列には手を加えない。
+function calcDisplay(value){
+  const s=String(value),pending='<span class="exp-pending">□</span>';let i=0;
+  function number(){
+    const m=/^(\d+\.?\d*|\.\d+)(?:e([+−-]?\d*))?/i.exec(s.slice(i));
+    if(!m)return null;
+    i+=m[0].length;
+    let out=esc(grp(m[1]));
+    if(m[2]!==undefined){
+      const exponent=m[2].replace(/-/g,'−');
+      out+='×10<sup>'+esc(grp(exponent))+(/\d$/.test(exponent)?'':pending)+'</sup>';
+    }
+    return out;
+  }
+  function group(){
+    i++;let out='('+read(true);
+    if(s[i]===')'){out+=')';i++}
+    return out;
+  }
+  function exponent(){
+    let out='';
+    while(s[i]&&'+−-'.includes(s[i]))out+=esc(s[i++]);
+    const atom=s[i]==='('?group():number();
+    out+=atom===null?pending:atom;
+    while(s[i]==='%')out+=s[i++];
+    if(s[i]==='^'){i++;out+='<sup>'+exponent()+'</sup>'}
+    return out;
+  }
+  function read(stopAtClose=false){
+    let out='';
+    while(i<s.length){
+      if(stopAtClose&&s[i]===')')break;
+      if(s[i]==='^'){i++;out+='<sup>'+exponent()+'</sup>';continue}
+      if(s[i]==='('){out+=group();continue}
+      const n=number();
+      if(n!==null){out+=n;continue}
+      out+=esc(s[i++]);
+    }
+    return out;
+  }
+  return read();
+}
 function cUp(){
   const x=$('#cx'),r=$('#cr');if(!x)return;
   const t=cE?grp(cE):'0';
-  x.textContent=t;x.style.fontSize=t.length>26?'18px':t.length>16?'23px':'';
+  x.innerHTML=calcDisplay(cE||'0');x.style.fontSize=t.length>26?'18px':t.length>16?'23px':'';
   let p='';
-  if(!cMsg&&!cDone&&cE){const e=norm(cE);if(hasOp(e)){try{p='= '+grp(fmtR(evalS(e)))}catch(er){}}}
-  r.textContent=cMsg||p;r.style.color=cMsg?'var(--D)':'';
+  if(!cMsg&&!cDone&&cE){const e=norm(cE);if(hasOp(e)){try{p='= '+calcDisplay(fmtR(evalS(e)))}catch(er){}}}
+  r.innerHTML=cMsg?esc(cMsg):p;r.style.color=cMsg?'var(--D)':'';
 }
 function cEq(){
   const e=norm(cE);if(!e)return;
@@ -903,6 +1023,7 @@ $('#app').addEventListener('click',e=>{
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
   if(id==='srec'){const t=$('#scm');if(t)sC=t.value;if(!sR){sMsg='A〜Dの評価を選んでください';render();return}recOne(sId,sR);return}
   delArm=null;
+  if(id==='offline-prepare'){prepareOffline(true);return}
   if(id==='adm'){location.href='admin.html';return}
   if(id==='padd'){
     const n=$('#pn').value.trim(),d=$('#pd').value,m=$('#pmsg');
@@ -1031,7 +1152,7 @@ document.addEventListener('touchcancel',()=>{sw=null},{passive:true});
 setInterval(()=>{const t=$('#tm');if(t&&S.act)t.textContent=fmt(el())},500);
 render();
 maybeGreet();
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+prepareOffline();
 </script>
 <script>
 /* 学習ルーレット：メニューとメモの改善 */
