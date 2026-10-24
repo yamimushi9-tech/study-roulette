@@ -352,6 +352,15 @@ function mkS(src){
     if(!b.rated||typeof b.rated!=='object')b.rated={};
     if(!Array.isArray(b.log))b.log=[];
     if(b.act===undefined)b.act=null;
+    // 旧版で抽選時に既修扱いとなった、まだ記録していない問題だけを戻す。
+    if(b.act&&!b.act.rv&&Array.isArray(b.act.nums)){
+      const recorded=new Set();
+      b.log.forEach(record=>{
+        if(record&&!record.mv&&Array.isArray(record.nums))record.nums.forEach(n=>{if(/^[ABCD]$/.test(record.r?.[n]))recorded.add(n)});
+      });
+      const pending=new Set(b.act.nums.filter(n=>!recorded.has(n)));
+      b.used=b.used.filter(n=>!pending.has(n));
+    }
   });
   if(!o.books.some(b=>b.id===o.cur))o.cur=o.books[0].id;
   if(!o.calc||typeof o.calc!=='object')o.calc={hist:[]};
@@ -1351,13 +1360,13 @@ function spin(rv){
   setTimeout(()=>{
     clearInterval(iv);
     sl.forEach((s,i)=>{s.classList.remove('spin');s.textContent=pick[i]!==undefined?lab(pick[i]):'–'});
-    setTimeout(()=>{if(!rv)S.used.push(...pick);S.act={nums:pick,r:{},comment:'',ms:0,t0:null,rv:rv?1:0};save();spinning=false;undoArm=false;render()},900);
+    setTimeout(()=>{S.act={nums:pick,r:{},comment:'',ms:0,t0:null,rv:rv?1:0};save();spinning=false;undoArm=false;render()},900);
   },1400);
 }
 function delRec(ts){
   const i=S.log.findIndex(x=>x.ts===ts);if(i<0)return;
   const e=S.log.splice(i,1)[0];
-  const keep=new Set(S.act?S.act.nums:[]);S.log.forEach(x=>x.nums.forEach(n=>keep.add(n)));
+  const keep=new Set();S.log.forEach(x=>{if(!x.mv)x.nums.forEach(n=>{if(/^[ABCD]$/.test(x.r?.[n]))keep.add(n)})});
   S.used=S.used.filter(n=>!e.nums.includes(n)||keep.has(n));
   S.rated={};S.log.forEach(x=>x.nums.forEach(n=>S.rated[n]=x.r[n]));
   save();render();
@@ -1456,16 +1465,16 @@ $('#app').addEventListener('click',e=>{
   else if(id==='trs'){a.ms=0;a.t0=null;save();render()}
   else if(id==='fin'){
     const cmE=$('#cm');if(cmE)a.comment=cmE.value;
-    const dn=a.nums.filter(n=>a.r[n]),rest=a.nums.filter(n=>!a.r[n]);
+    const dn=a.nums.filter(n=>a.r[n]);
     if(!dn.length)return say('#msg','1問以上、A〜Dの評価をつけてください');
     const ms=el();
     S.log.push({ts:Date.now(),nums:dn,r:a.r,ms:ms,c:a.comment.trim(),rv:a.rv});
-    dn.forEach(n=>S.rated[n]=a.r[n]);if(!a.rv)S.used=S.used.filter(n=>!rest.includes(n));
+    dn.forEach(n=>{S.rated[n]=a.r[n];if(!S.used.includes(n))S.used.push(n)});
     S.act=null;save();go('log');
   }
   else if(id==='undo'){
     if(!undoArm){undoArm=true;render();return}
-    if(!a.rv){const u=new Set(a.nums);S.used=S.used.filter(n=>!u.has(n))}S.act=null;undoArm=false;save();render();
+    S.act=null;undoArm=false;save();render();
   }
   else if(id==='stot'){
     const sp=parseSpec($('#tot').value);
