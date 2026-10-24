@@ -204,6 +204,27 @@ details.pf>summary{cursor:pointer;font-weight:700}
 .rw input[type="range"]::-moz-range-thumb{box-sizing:border-box;width:26px;height:26px;border:3px solid #fff;border-radius:50%;background:var(--pri);box-shadow:0 0 0 2px var(--pri),0 2px 6px rgba(0,0,0,.3)}
 .rw input:disabled{opacity:.4}
 .rw .rwinfo{grid-column:1/-1;margin:0;color:var(--mu);font-size:12px;line-height:1.4}
+
+#book-estimate-dialog{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.55);opacity:0;transition:opacity .18s}
+#book-estimate-dialog[hidden]{display:none}
+#book-estimate-dialog.show{opacity:1}
+#book-estimate-dialog.show .mbox{transform:none}
+#book-estimate-dialog .mbox{max-height:88vh;max-height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain;text-align:center}
+#book-estimate-close{min-width:44px;min-height:44px}
+#book-estimate-name{margin:4px 0 18px;font-size:16px;font-weight:700;overflow-wrap:anywhere}
+.be-label{margin:0 0 8px;font-size:14px}
+.be-primary{color:var(--pri);font-size:22px;font-weight:800;line-height:1.35;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.be-primary b{font-size:clamp(44px,14vw,68px);line-height:1.15;margin:0 4px}
+.be-primary .be-unavailable{font-size:22px}
+.be-basis{margin:10px 0 0;font-size:13px;color:var(--mu)}
+.be-secondary{margin-top:22px;padding-top:16px;border-top:1px solid var(--bd);color:var(--mu)}
+.be-secondary .be-label{font-size:13px}
+#book-estimate-secondary{font-size:18px;line-height:1.4;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+#book-estimate-secondary b{font-size:28px;margin:0 3px}
+#book-estimate-secondary .be-unavailable{font-size:16px}
+#book-estimate-progress{margin:20px 0 0;font-size:14px;font-weight:700}
+.be-help{margin:12px 0 0;text-align:left;color:var(--mu);font-size:12px;line-height:1.6}
+@media(prefers-reduced-motion:reduce){#book-estimate-dialog,#book-estimate-dialog .mbox{transition:none}}
 </style>
 </head>
 <body>
@@ -271,6 +292,22 @@ details.pf>summary{cursor:pointer;font-weight:700}
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="calendar-day-title">
     <div class="mh"><b id="calendar-day-title">予定</b><button id="calendar-day-close" class="ghost" aria-label="日付の予定を閉じる">✕</button></div>
     <div id="calendar-detail"></div>
+  </div>
+</div>
+<div id="book-estimate-dialog" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="book-estimate-title" aria-describedby="book-estimate-name">
+    <div class="mh"><b id="book-estimate-title">📘 教材の完了予測</b><button type="button" id="book-estimate-close" class="ghost" aria-label="完了予測を閉じる">✕</button></div>
+    <p id="book-estimate-name"></p>
+    <p class="be-label">この教材が終わるまでの推定日数<br><span class="mu">直近3日のペース</span></p>
+    <div class="be-primary" id="book-estimate-primary"></div>
+    <p class="be-basis" id="book-estimate-three"></p>
+    <div class="be-secondary">
+      <p class="be-label">直近7日のペースでは</p>
+      <div id="book-estimate-secondary"></div>
+      <p class="be-basis" id="book-estimate-seven"></p>
+    </div>
+    <p id="book-estimate-progress"></p>
+    <p class="be-help">今日を含む3日間・7日間で平均します。記録がない日も0問として計算します。<br>学習の記録だけを集計します（復習・個別追加を含む）。</p>
   </div>
 </div>
 <div id="rdl" hidden>
@@ -450,9 +487,68 @@ function anim(d,px,sec){
   const a=$('#app');a.style.setProperty('--sx',(d>0?px:-px)+'px');a.style.animation='none';a.offsetWidth;a.style.animation='sl '+sec+'s ease-out';
 }
 function vBar(){
-  return '<div class="bks">'+S.books.map(b=>`<button class="bk${b.id===S.cur?' on':''}${b.id===popId?' pop':''}" data-bk="${esc(b.id)}">${esc(b.name)}</button>`).join('')+'<button class="bk" id="bkadd">＋</button></div>';
+  return '<div class="bks">'+S.books.map(b=>`<button class="bk${b.id===S.cur?' on':''}${b.id===popId?' pop':''}" data-bk="${esc(b.id)}"${b.id===S.cur?' aria-haspopup="dialog" aria-controls="book-estimate-dialog"':''}>${esc(b.name)}</button>`).join('')+'<button class="bk" id="bkadd">＋</button></div>';
 }
 const curBook=()=>S.books.find(b=>b.id===S.cur)||S.books[0];
+let bookEstimateOpen=false;
+function getBookEstimate(book,now=nowFn()){
+  const parts=book.parts.map(count=>Number.isInteger(count)&&count>0?count:0);
+  const total=parts.reduce((sum,count)=>sum+count,0),completed=new Set();
+  const today=dayN(now.getFullYear(),now.getMonth()+1,now.getDate());
+  let count3=0,count7=0;
+  for(const record of book.log){
+    if(!record||record.mv||!Array.isArray(record.nums))continue;
+    const timestamp=Number(record.ts);
+    if(!Number.isFinite(timestamp)||timestamp>now.getTime())continue;
+    const date=new Date(timestamp),day=dayN(date.getFullYear(),date.getMonth()+1,date.getDate());
+    if(!Number.isFinite(day))continue;
+    const numbers=[...new Set(record.nums)].filter(id=>{
+      if(!Number.isInteger(id))return false;
+      const part=Math.floor(id/1000),question=id%1000;
+      return part>=1&&part<=parts.length&&question>=1&&question<=parts[part-1]&&/^[ABCD]$/.test(record.r?.[id]);
+    });
+    numbers.forEach(id=>completed.add(id));
+    if(day>=today-2&&day<=today)count3+=numbers.length;
+    if(day>=today-6&&day<=today)count7+=numbers.length;
+  }
+  const remaining=Math.max(0,total-completed.size);
+  const window=days=>{
+    const count=days===3?count3:count7;
+    return {count,average:count/days,days:remaining===0?0:count?Math.ceil(remaining*days/count):null};
+  };
+  return {total,completed:completed.size,remaining,three:window(3),seven:window(7)};
+}
+function renderBookEstimate(){
+  if(!bookEstimateOpen)return;
+  const book=curBook(),estimate=getBookEstimate(book);
+  const format=value=>value.toLocaleString('ja-JP',{maximumFractionDigits:1});
+  const result=stat=>stat.days===null?'<span class="be-unavailable">まだ推定できません</span>':`あと <b>${format(stat.days)}</b><span>日</span>`;
+  $('#book-estimate-name').textContent=book.name;
+  $('#book-estimate-primary').innerHTML=result(estimate.three);
+  $('#book-estimate-three').textContent=estimate.three.count?`3日間で${format(estimate.three.count)}問・1日平均${format(estimate.three.average)}問`:'直近3日間に学習の記録がありません';
+  $('#book-estimate-secondary').innerHTML=result(estimate.seven);
+  $('#book-estimate-seven').textContent=estimate.seven.count?`7日間で${format(estimate.seven.count)}問・1日平均${format(estimate.seven.average)}問`:'直近7日間に学習の記録がありません';
+  $('#book-estimate-progress').textContent=estimate.remaining?`残り${format(estimate.remaining)}問（記録済み${format(estimate.completed)} / ${format(estimate.total)}問）`:`全${format(estimate.total)}問を記録済みです 🎉`;
+}
+function openBookEstimate(){
+  if(bookEstimateOpen||spinning)return;
+  bookEstimateOpen=true;renderBookEstimate();
+  pOpen($('#book-estimate-dialog'));pushOv();$('#book-estimate-close').focus({preventScroll:true});
+}
+function closeBookEstimate(fromPop){
+  if(!bookEstimateOpen)return;
+  bookEstimateOpen=false;pClose($('#book-estimate-dialog'));
+  const button=[...document.querySelectorAll('button[data-bk]')].find(button=>button.dataset.bk===S.cur);
+  if(button)button.focus({preventScroll:true});
+  if(!fromPop)popOv(true);
+}
+$('#book-estimate-dialog').addEventListener('click',event=>{
+  if(event.target.id==='book-estimate-dialog'||event.target.closest('#book-estimate-close'))closeBookEstimate();
+});
+$('#book-estimate-dialog').addEventListener('keydown',event=>{
+  if(event.key==='Tab'){event.preventDefault();$('#book-estimate-close').focus({preventScroll:true})}
+});
+
 function setBook(id){
   if(spinning||S.cur===id||!S.books.some(b=>b.id===id))return;
   const a=S.act;if(a&&a.t0){a.ms+=Date.now()-a.t0;a.t0=null}
@@ -577,6 +673,7 @@ $('#mdl').addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
+    if(bookEstimateOpen){e.preventDefault();closeBookEstimate();return}
     if(calendarDayOpen){e.preventDefault();closeCalendarDay();return}
     closeAdd();closeHist();closeRcfg();closeGreet();closeNote();closeDrawer();closeCalendar();
   }
@@ -1232,7 +1329,7 @@ $('#ndl').addEventListener('click',e=>{
 window.addEventListener('popstate',()=>{
   if(ovSkip>0){ovSkip--;return}
   let c=false;
-  if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
+  if(bookEstimateOpen){closeBookEstimate(1);c=true}else if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
   if(c&&ovH>0)ovH--;
 });
 window.addEventListener('pagehide',flushNote);
@@ -1242,6 +1339,7 @@ function render(){
   $('#app').innerHTML=(tab==='calc'||tab==='plan'||tab==='memo'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,plan:vPlan,memo:vMemo,set:vSet}[tab]();
   if(tab==='calc')cUp();
   if(calendarOpen)renderCalendar();
+  if(bookEstimateOpen)renderBookEstimate();
 }
 function spin(rv){
   const p=rv?cdList():drawPool();if(!p.length||spinning)return;
@@ -1309,7 +1407,7 @@ function delOne(id){
   sMsg=lab(id)+' を未修に戻しました';save();rdOne();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'||e.target.id==='iq'))schOne()});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){flushNote()}else{if(tab==='plan')render();maybeGreet()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){flushNote()}else{if(tab==='plan')render();if(bookEstimateOpen)renderBookEstimate();maybeGreet()}});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.id==='mn')openDrawer()});
 $('#app').addEventListener('click',e=>{
@@ -1317,7 +1415,7 @@ $('#app').addEventListener('click',e=>{
   if(af&&af.dataset&&af.dataset.first){e.preventDefault();openChain(af.dataset.first,af.dataset.next);return}
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
-  if(b.dataset.bk){setBook(b.dataset.bk);return}
+  if(b.dataset.bk){if(b.dataset.bk===S.cur)openBookEstimate();else setBook(b.dataset.bk);return}
   if(id==='bkadd'){openAdd();return}
   if(id==='bdel'){if(!bkArm){bkArm=true;render();return}delBook();return}
   if(bkArm){bkArm=false;const bd=$('#bdel');if(bd){bd.textContent='削除する';bd.style.cssText=''}}
@@ -1447,7 +1545,7 @@ function go(t,dir){
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#drw,#ndl'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#book-estimate-dialog,#drw,#ndl'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
