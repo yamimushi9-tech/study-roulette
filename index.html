@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
-<style>
+<style data-study-code>
 :root{--bg:#f6f7fb;--card:#fff;--tx:#1d2330;--mu:#6b7385;--bd:#e3e6ee;--pri:#4f46e5;--pt:#fff;--A:#16a34a;--B:#2563eb;--C:#d97706;--D:#dc2626;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141b;--card:#1b1f2a;--tx:#e8ebf2;--mu:#9aa3b5;--bd:#2c3242;--pri:#818cf8;--pt:#10131a;--A:#4ade80;--B:#60a5fa;--C:#fbbf24;--D:#f87171}}
 :root[data-theme="dark"]{--bg:#12141b;--card:#1b1f2a;--tx:#e8ebf2;--mu:#9aa3b5;--bd:#2c3242;--pri:#818cf8;--pt:#10131a;--A:#4ade80;--B:#60a5fa;--C:#fbbf24;--D:#f87171}
@@ -225,6 +225,9 @@ details.pf>summary{cursor:pointer;font-weight:700}
 #book-estimate-progress{margin:20px 0 0;font-size:14px;font-weight:700}
 .be-help{margin:12px 0 0;text-align:left;color:var(--mu);font-size:12px;line-height:1.6}
 @media(prefers-reduced-motion:reduce){#book-estimate-dialog,#book-estimate-dialog .mbox{transition:none}}
+
+/* HTML更新後の初回通知 */
+#study-update-notice{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 28px);padding:10px 18px;border-radius:999px;background:var(--pri);color:var(--pt);box-shadow:0 4px 16px #0003;font:700 14px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;text-align:center;pointer-events:none}
 </style>
 </head>
 <body>
@@ -328,7 +331,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <button id="rok" class="pri w">閉じる</button>
   </div>
 </div>
-<script>
+<script data-study-code>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const newBook=(name,parts,st)=>{const b={id:uid(),name:name,parts:parts||DP.slice(),used:[],rated:{},log:[],act:null};if(st)b.st=st;return b};
@@ -1572,7 +1575,7 @@ maybeGreet();
 refreshJapaneseHolidays();
 prepareOffline();
 </script>
-<script>
+<script data-study-code>
 /* 学習ルーレット：メニューとメモの改善 */
 (() => {
   'use strict';
@@ -1974,7 +1977,7 @@ prepareOffline();
 })();
 
 </script>
-<script>
+<script data-study-code>
 /* よく使う機能への下部メニュー */
 (() => {
   const quickTabs = TABS.slice(0,-1);
@@ -2041,6 +2044,49 @@ prepareOffline();
     else if (tab !== target) go(target);
   });
   sync();
+})();
+
+</script>
+<script data-study-code>
+/* HTMLの更新通知：同じコードでは一度だけ。学習データには触れません。 */
+(() => {
+  'use strict';
+  const key = 'studylog_html_notice_v1';
+  const source = Array.from(document.querySelectorAll('[data-study-code]'))
+    .map(element => element.textContent).join('\n');
+  let a = 2166136261, b = 5381;
+  for (let i = 0; i < source.length; i++) {
+    a = Math.imul(a ^ source.charCodeAt(i), 16777619);
+    b = Math.imul(b, 33) ^ source.charCodeAt(i);
+  }
+  const version = (a >>> 0).toString(16) + ':' + (b >>> 0).toString(16) + ':' + source.length;
+  let previous, existing;
+  try {
+    previous = localStorage.getItem(key);
+    existing = localStorage.getItem('studylog_v2') !== null || localStorage.getItem('studylog_ui') !== null;
+  } catch (_) { return; }
+  if (previous === version) return;
+  let finished = false;
+  function showWhenReady() {
+    if (finished || document.hidden || document.readyState === 'loading') return;
+    const app = document.getElementById('app');
+    if (!app || !app.children.length) return;
+    try { localStorage.setItem(key, version); }
+    catch (_) { return; }
+    finished = true;
+    document.removeEventListener('visibilitychange', showWhenReady);
+    if (previous === null && !existing) return;
+    const notice = document.createElement('div');
+    notice.id = 'study-update-notice';
+    notice.setAttribute('role', 'status');
+    notice.setAttribute('aria-live', 'polite');
+    notice.textContent = 'アップデートしました';
+    document.body.appendChild(notice);
+    setTimeout(() => notice.remove(), 2000);
+  }
+  document.addEventListener('visibilitychange', showWhenReady);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showWhenReady, {once:true});
+  else showWhenReady();
 })();
 
 </script>
