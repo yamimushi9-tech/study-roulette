@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -519,7 +519,7 @@ function limitNativeAvailable(){
     if(!window.AndroidApp){limitConnection={kind:'browser',api:0};return false}
     if(typeof AndroidApp.restrictionApiVersion!=='function'){limitConnection={kind:'old',api:0};return false}
     const api=Number(AndroidApp.restrictionApiVersion());
-    limitConnection={kind:api>=7?'connected':api>=1?'old':'denied',api};return api>=7;
+    limitConnection={kind:api>=8?'connected':api>=1?'old':'denied',api};return api>=8;
   }catch(e){limitConnection={kind:'error',api:0,detail:e.message||'Androidとの接続に失敗しました'};return false}
 }
 function limitConnectionCard(){
@@ -575,10 +575,18 @@ function limitWarningText(){
     :`使用教材「${book.name}」が終わるまでに推定${estimate.three.days}日です（直近3日間のペース）。`;
   return plan+'\n'+finish+'\n\nほんとに大丈夫ですか？';
 }
+function limitBookLastStudied(book,now){
+  return book.log.reduce((latest,r)=>{
+    const ts=Number(r?.ts);
+    return r&&!r.mv&&Number.isFinite(ts)&&ts<=now&&Array.isArray(r.nums)&&r.nums.some(n=>Number.isInteger(n)&&book.parts[Math.floor(n/1000)-1]>=n%1000&&n%1000>0&&/^[ABCD]$/.test(r.r?.[n]))?Math.max(latest,ts):latest;
+  },0);
+}
 function limitWarningData(){
-  const options=limitUi(),book=S.books.find(b=>b.id===options.bookId)||curBook(),estimate=getBookEstimate(book);
-  return {version:2,planId:options.planId||'',plans:limitUpcoming().slice(0,30).map(x=>({id:x.p.id,name:x.p.name||'予定',day:x.day})),
-    bookName:book.name,remaining:estimate.remaining,completed:estimate.completed,total:estimate.total,pace:estimate.daily};
+  const now=nowFn().getTime();
+  const recent=S.books.map(book=>({book,last:limitBookLastStudied(book,now)}))
+    .filter(x=>x.last>0).sort((a,b)=>b.last-a.last).slice(0,3);
+  return {version:3,plans:limitUpcoming().slice(0,30).map(x=>({id:x.p.id,name:x.p.name||'予定',day:x.day})),
+    books:recent.map(({book,last})=>{const e=getBookEstimate(book);return {id:book.id,name:book.name,lastStudiedAt:last,remaining:e.remaining,completed:e.completed,total:e.total,pace:e.daily}})};
 }
 function limitSyncWarning(){if(!limitNativeAvailable())return;try{limitCall('restrictionWarning',JSON.stringify(limitWarningData()))}catch(_){}}
 function vLimits(){
@@ -627,6 +635,7 @@ function limitSessionHint(a){
   return `<div class="limit-session-hint"><b>時間追加まで ${done} / 5問</b></div>`;
 }
 window.addEventListener('study-native-resume',()=>{if(tab==='limits'){limitRead();render()}limitInitialise()});
+window.addEventListener('study-native-pause',limitSyncWarning);
 
 let bookEstimateOpen=false;
 function getBookEstimate(book,now=nowFn()){
