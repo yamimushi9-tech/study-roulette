@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -519,7 +519,7 @@ function limitNativeAvailable(){
     if(!window.AndroidApp){limitConnection={kind:'browser',api:0};return false}
     if(typeof AndroidApp.restrictionApiVersion!=='function'){limitConnection={kind:'old',api:0};return false}
     const api=Number(AndroidApp.restrictionApiVersion());
-    limitConnection={kind:api>=6?'connected':api>=1?'old':'denied',api};return api>=6;
+    limitConnection={kind:api>=7?'connected':api>=1?'old':'denied',api};return api>=7;
   }catch(e){limitConnection={kind:'error',api:0,detail:e.message||'Androidとの接続に失敗しました'};return false}
 }
 function limitConnectionCard(){
@@ -575,14 +575,20 @@ function limitWarningText(){
     :`使用教材「${book.name}」が終わるまでに推定${estimate.three.days}日です（直近3日間のペース）。`;
   return plan+'\n'+finish+'\n\nほんとに大丈夫ですか？';
 }
-function limitSyncWarning(){if(!limitNativeAvailable())return;try{limitCall('restrictionWarning',limitWarningText())}catch(_){}}
+function limitWarningData(){
+  const options=limitUi(),book=S.books.find(b=>b.id===options.bookId)||curBook(),estimate=getBookEstimate(book);
+  return {version:2,planId:options.planId||'',plans:limitUpcoming().slice(0,30).map(x=>({id:x.p.id,name:x.p.name||'予定',day:x.day})),
+    bookName:book.name,remaining:estimate.remaining,completed:estimate.completed,total:estimate.total,pace:estimate.daily};
+}
+function limitSyncWarning(){if(!limitNativeAvailable())return;try{limitCall('restrictionWarning',JSON.stringify(limitWarningData()))}catch(_){}}
 function vLimits(){
   if(!limitNativeAvailable())return '<section class="card"><b>APKの更新が必要です</b></section>';
   return '<section class="card"><button id="limit-launcher-open" class="pri w">開く</button><button id="limit-home" class="ghost w">ホームに設定</button></section>';
 }
 function closeLimitDialog(){limitDialogOpen=false}
 function handleLimitClick(b){
-  if(b.id==='limit-launcher-open'){limitCall('previewRestrictionHome');return true}
+  if(b.id==='limit-launcher-open'){limitSyncWarning();limitCall('previewRestrictionHome');return true}
+  if(b.id==='launcher-settings'){limitSyncWarning();limitCall('openLauncherSettings');return true}
   if(b.id==='limit-home'){limitCall('openRestrictionHome');return true}
   return false;
 }
@@ -627,7 +633,7 @@ function getBookEstimate(book,now=nowFn()){
   const parts=book.parts.map(count=>Number.isInteger(count)&&count>0?count:0);
   const total=parts.reduce((sum,count)=>sum+count,0),completed=new Set();
   const today=dayN(now.getFullYear(),now.getMonth()+1,now.getDate());
-  let count3=0,count7=0;
+  let count3=0,count7=0;const daily={};
   for(const record of book.log){
     if(!record||record.mv||!Array.isArray(record.nums))continue;
     const timestamp=Number(record.ts);
@@ -640,7 +646,7 @@ function getBookEstimate(book,now=nowFn()){
       return part>=1&&part<=parts.length&&question>=1&&question<=parts[part-1]&&/^[ABCD]$/.test(record.r?.[id]);
     });
     numbers.forEach(id=>completed.add(id));
-    if(day>=today-2&&day<=today)count3+=numbers.length;
+    if(day>=today-2&&day<=today){count3+=numbers.length;daily[day]=(daily[day]||0)+numbers.length}
     if(day>=today-6&&day<=today)count7+=numbers.length;
   }
   const remaining=Math.max(0,total-completed.size);
@@ -648,7 +654,7 @@ function getBookEstimate(book,now=nowFn()){
     const count=days===3?count3:count7;
     return {count,average:count/days,days:remaining===0?0:count?Math.ceil(remaining*days/count):null};
   };
-  return {total,completed:completed.size,remaining,three:window(3),seven:window(7)};
+  return {total,completed:completed.size,remaining,daily,three:window(3),seven:window(7)};
 }
 function renderBookEstimate(){
   if(!bookEstimateOpen)return;
@@ -894,7 +900,7 @@ async function prepareOffline(refresh=false){
 }
 function vSet(){
   const b=curBook(),many=S.books.length>1;
-  return `<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
+  return (limitNativeAvailable()?'<div class="card"><button id="launcher-settings" class="w" style="margin:0">学習用ランチャーの設定</button></div>':'')+`<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
   +setupForm('各部の問題数（'+esc(b.name)+'）')
   +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
   +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
@@ -1547,7 +1553,7 @@ $('#app').addEventListener('click',e=>{
   if(af&&af.dataset&&af.dataset.first){e.preventDefault();openChain(af.dataset.first,af.dataset.next);return}
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
-  if(tab==='limits'){try{if(handleLimitClick(b))return}catch(error){toast(error.message);return}}
+  if(tab==='limits'||b.id==='launcher-settings'){try{if(handleLimitClick(b))return}catch(error){toast(error.message);return}}
   if(b.dataset.bk){if(b.dataset.bk===S.cur)openBookEstimate();else setBook(b.dataset.bk);return}
   if(id==='bkadd'){openAdd();return}
   if(id==='bdel'){if(!bkArm){bkArm=true;render();return}delBook();return}
@@ -1678,7 +1684,7 @@ document.addEventListener('mouseup',dEnd);
 document.addEventListener('touchcancel',dCancel);
 const TABS=['roulette','calc','log','other'];
 function go(t,dir){
-  if(t==='limits'&&limitNativeAvailable()){limitCall('previewRestrictionHome');return}
+  if(t==='limits'&&limitNativeAvailable()){limitSyncWarning();limitCall('previewRestrictionHome');return}
   const o=Math.max(0,TABS.includes(tab)?TABS.indexOf(tab):3),n=TABS.includes(t)?TABS.indexOf(t):3;
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
   anim(dir===1||dir===-1?dir:(n>o?1:-1),40,.22);
