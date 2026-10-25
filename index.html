@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-app-lock-v5">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -231,33 +231,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
 #study-update-notice{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 28px);padding:10px 18px;border-radius:999px;background:var(--pri);color:var(--pt);box-shadow:0 4px 16px #0003;font:700 14px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;text-align:center;pointer-events:none}
 </style>
 <style data-study-code>
-.limit-control{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.limit-control button{min-height:44px;white-space:nowrap}.limit-control .limit-pill{font-size:14px;font-weight:700}
-.limit-pill.active{color:var(--A)}.limit-small{font-size:12px}
-.limit-number-row{justify-content:flex-start;gap:8px}.limit-number-row input{width:76px;flex:none;text-align:center;font-variant-numeric:tabular-nums}
-.limit-bonus{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.limit-bonus label{font-size:14px;margin:0}.limit-number-row button{min-height:44px;padding:9px 12px}
-.limit-permission .row{gap:12px}.limit-permission b{font-size:14px}.limit-permission p{margin:10px 0}.limit-permission details{margin-top:10px}.limit-permission summary{font-size:12px;color:var(--mu);cursor:pointer}
-.limit-permission ol{padding-left:20px;font-size:13px;line-height:1.8}.limit-permission li+li{margin-top:6px}
-.limit-app-card{padding-bottom:6px}.limit-app-card input[type=search]{margin-top:12px}.limit-recent-row{margin-top:6px;min-height:38px}.limit-recent-row button{padding:8px 10px}.limit-recent-row .mu{font-size:12px}
-.limit-filters{display:flex;gap:5px;flex-wrap:wrap;padding:10px 0}
-.limit-filters button{font-size:12px;padding:8px 10px;min-height:40px;white-space:nowrap}
-.limit-filters button[aria-pressed=true],.limit-modes button[aria-pressed=true]{border-color:var(--pri);background:color-mix(in srgb,var(--pri) 10%,var(--card));color:var(--tx)}
-.limit-apps{max-height:min(58dvh,480px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
-.limit-app{display:flex;width:100%;align-items:center;gap:12px;border:0;border-top:1px solid var(--bd);border-radius:0;padding:10px 0;text-align:left;background:transparent;min-height:64px}
-.limit-app:disabled{opacity:.7;cursor:default}.limit-icon{width:38px;height:38px;flex:none;display:grid;place-items:center;font-size:24px;border-radius:10px;overflow:hidden;background:var(--bg)}
-.limit-icon img{object-fit:contain;width:38px;height:38px}
-.limit-app-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}.limit-app-copy>b{font-size:14px;overflow-wrap:anywhere}.limit-app-copy>.mu{font-size:12px;line-height:1.5;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-.limit-chevron{font-size:20px;color:var(--mu);flex:none}.limit-list-note{font-size:12px;color:var(--mu);margin:0 0 6px}
-.limit-options label{font-size:13px;margin-top:12px}.limit-options .mu{font-size:12px}
-.limit-warning-preview{white-space:pre-line;padding:14px;border-radius:12px;background:var(--bg);border-left:3px solid var(--C);font-size:14px;line-height:1.9;overflow-wrap:anywhere}
-.limit-attention{border-color:var(--C)}.limit-error{color:var(--D);font-size:13px;white-space:pre-line;overflow-wrap:anywhere}.limit-error:empty{display:none}
-.limit-details summary{font-size:14px;font-weight:700;cursor:pointer}.limit-details ul{padding-left:20px;font-size:12px;color:var(--mu);line-height:1.8}.limit-details li+li{margin-top:10px}
-#limit-dialog{position:fixed;inset:0;z-index:260;display:flex;align-items:center;justify-content:center;background:#0009;padding:20px;opacity:0;transition:opacity .18s}
-#limit-dialog[hidden]{display:none}#limit-dialog.show{opacity:1}#limit-dialog.show .mbox{transform:none}
-#limit-dialog .mbox{max-height:calc(100dvh - 40px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain}
-#limit-dialog .mh{gap:10px;align-items:center}#limit-dialog label{font-size:13px;margin-top:16px}#limit-dialog .w+.w{margin-top:8px}
-.limit-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.limit-modes button{padding:12px 4px;font-size:13px;text-align:center;min-height:46px}
-.limit-session-hint{border:1px solid var(--bd);border-radius:14px;padding:12px;margin:12px 0;background:var(--card);display:flex;flex-direction:column;gap:5px}.limit-session-hint b{font-size:14px;color:var(--pri)}.limit-session-hint span{font-size:12px;color:var(--mu)}
+.limit-small{font-size:12px}.limit-session-hint{border:1px solid var(--bd);border-radius:14px;padding:12px;margin:12px 0;background:var(--card);display:flex;flex-direction:column;gap:5px}.limit-session-hint b{font-size:14px;color:var(--pri)}.limit-session-hint span{font-size:12px;color:var(--mu)}
 .limit-award{font-size:12px;color:var(--A);margin-top:8px}
 @media(prefers-reduced-motion:reduce){#limit-dialog,#limit-dialog .mbox{transition:none}}
 
@@ -277,7 +251,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <button data-tab="log"><span>📖</span>記録</button>
     <button data-tab="plan"><span>📅</span>予定表</button>
     <button data-tab="memo"><span>📝</span>メモ</button>
-    <button data-tab="limits"><span>🔒</span>アプリ制限</button>
+    <button data-tab="limits"><span>⌂</span>学習用ランチャー</button>
     <button data-tab="set"><span>⚙</span>設定</button>
   </div>
 </div>
@@ -522,7 +496,7 @@ function vLog(){
       const tm=new Date(s.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
       const ar=delArm===s.ts,ty=s.mv?'分類変更':s.one?'個別追加':s.rv?'📚復習 ⏱'+fmt(s.ms):'🎯 ⏱'+fmt(s.ms);
       const fx=s.c&&!s.mv?`<button class="fx${s.fx?' ok':''}" data-fx="${s.ts}">${s.fx?'✅ 対策済み':'⚠ 未対策'}</button>`:'';
-      return `<div class="rec"><div class="rl"><div><b>${full.length-full.indexOf(s)}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.limAward?.length?'<div class="limit-award">🎁 '+s.limAward.length+'個のアプリに時間を追加</div>':s.limId&&!s.limSettled?'<div class="mu limit-small">時間追加を次回起動時に再確認します</div>':''}</div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
+      return `<div class="rec"><div class="rl"><div><b>${full.length-full.indexOf(s)}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.limWalletMs?'<div class="limit-award">持ち時間 ＋'+s.limWalletMs/60000+'分</div>':s.limAward?.length?'<div class="limit-award">🎁 '+s.limAward.length+'個のアプリに時間を追加</div>':s.limId&&!s.limSettled?'<div class="mu limit-small">時間追加を次回起動時に再確認します</div>':''}</div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
     }).join('');
   }).join('');
   return bar+'<p class="mu">'+notation()+'</p>'+(body||(logF?'<p class="mu c">未対策の記録はありません 🎉</p>':''));
@@ -545,7 +519,7 @@ function limitNativeAvailable(){
     if(!window.AndroidApp){limitConnection={kind:'browser',api:0};return false}
     if(typeof AndroidApp.restrictionApiVersion!=='function'){limitConnection={kind:'old',api:0};return false}
     const api=Number(AndroidApp.restrictionApiVersion());
-    limitConnection={kind:api>=5?'connected':api>=1?'old':'denied',api};return api>=5;
+    limitConnection={kind:api>=6?'connected':api>=1?'old':'denied',api};return api>=6;
   }catch(e){limitConnection={kind:'error',api:0,detail:e.message||'Androidとの接続に失敗しました'};return false}
 }
 function limitConnectionCard(){
@@ -602,129 +576,15 @@ function limitWarningText(){
   return plan+'\n'+finish+'\n\nほんとに大丈夫ですか？';
 }
 function limitSyncWarning(){if(!limitNativeAvailable())return;try{limitCall('restrictionWarning',limitWarningText())}catch(_){}}
-function limitHeadlineStatus(){
-  return limitState?.enabled?(limitState.serviceActive?(limitState.lockError?'要確認':'制限中'):'権限が無効'):'停止中';
-}
-function limitOsSignature(){const os=limitState?.os;return os?JSON.stringify([os.busy,os.managedCount,os.recoveryPending]):''}
-function limitLegacyRecovery(){
-  if(!limitState?.os?.managedCount)return '';
-  return `<details class="card limit-details"><summary>以前の一時停止を解除</summary><p class="mu">旧版で停止したアプリが残っています。この解除だけ、以前のShizukuへの再接続が必要です。</p><button id="limit-legacy-release" class="ghost w">解除を再試行</button></details>`;
-}
-function limitAccessHelp(){
-  return `<section class="card limit-permission"><div class="row"><b>ユーザー補助が未設定</b><button id="limit-access" class="pri">設定</button></div><p class="mu limit-small">アプリの検出・時間計測・ロックに使います。</p><details class="limit-access-help"><summary>「アクセス拒否」と出る場合</summary><ol><li>下のボタンからアプリ情報を開く</li><li>右上の「⋮」→「制限付き設定を許可」</li><li>この画面に戻り「設定」からユーザー補助をオン</li></ol><button id="limit-app-info" class="ghost w">アプリ情報を開く</button><p class="mu limit-small">項目の場所は端末によって異なります。<a href="https://support.google.com/android/answer/12623953?hl=ja" target="_blank" rel="noopener">Androidの説明</a></p></details></section>`;
-}
 function vLimits(){
-  limitRead(true);
-  if(!limitState)return limitConnectionCard();
-  const active=limitState.enabled,working=active&&limitState.serviceActive;
-  const up=limitUpcoming(),opts=limitUi(),book=S.books.find(b=>b.id===opts.bookId)||curBook();
-  const q=limitQuery.trim().toLocaleLowerCase(),list=limitApps.filter(a=>!a.protected&&(limitFilter==='all'||limitRule(a.package).mode===limitFilter)&&(!q||(a.name+' '+a.package).toLocaleLowerCase().includes(q)));
-  const rows=list.slice(0,limitVisible).map(a=>`<button class="limit-app" type="button" data-limit-app="${esc(a.package)}"><span class="limit-icon" data-limit-icon="${esc(a.package)}">${limitIcon(a)}</span><span class="limit-app-copy"><b>${esc(a.name)}</b><span class="mu" data-limit-balance="${esc(a.package)}">${esc(limitBalance(a))}</span></span><span class="limit-chevron" aria-hidden="true">›</span></button>`).join('');
-  return `<section class="card limit-control"><span id="limit-status" class="limit-pill ${working?'active':''}" role="status">${esc(limitHeadlineStatus())}</span><button id="limit-toggle" class="${active?'ghost':'pri'}">${active?'制限を解除':'制限を開始'}</button></section>
-  ${!limitState.serviceActive?limitAccessHelp():''}
-  ${limitState.lockError?'<p class="limit-error" role="alert">ロック画面の表示エラーがあります。対象アプリをホームへ戻す方式で制限します。</p>':''}
-  ${limitError?`<p role="alert" class="limit-error">${esc(limitError)}</p>`:''}
-  <section class="card limit-bonus"><label for="limit-default-bonus">5問完了で追加</label><div class="row limit-number-row"><input id="limit-default-bonus" type="number" min="0" max="180" step="1" inputmode="numeric" value="${limitState.defaultBonus}" aria-label="5問完了の追加時間（分）"><span>分</span><button id="limit-bonus-save" class="ghost">保存</button></div></section>
-  <section class="card limit-app-card"><div class="row"><b>アプリ</b><button id="limit-reload" class="ghost limit-small">更新</button></div><input id="limit-search" type="search" placeholder="アプリを検索" aria-label="アプリを検索" value="${esc(limitQuery)}" autocomplete="off"><div class="row limit-recent-row"><span class="mu">最近使った順</span>${!limitState.usageAccess?'<button id="limit-usage" class="ghost limit-small">履歴を許可</button>':''}</div><div class="limit-filters" role="group" aria-label="アプリの表示を絞り込む">${[['all','すべて'],['blocked','ロック'],['timed','時間制限'],['unlimited','無制限']].map(([k,n])=>`<button type="button" data-limit-filter="${k}" aria-pressed="${limitFilter===k}">${n}</button>`).join('')}</div><p class="limit-list-note">${list.length}件 · 未設定のアプリはロック${!limitState.usageAccess?'<br>許可すると、これまでの使用履歴も反映します':''}</p><div class="limit-apps">${rows||'<p class="mu c">アプリがありません</p>'}</div>${list.length>limitVisible?'<button id="limit-more" class="ghost w">さらに表示</button>':''}</section>
-  <details class="card limit-details limit-options"><summary>解除時の確認メッセージ</summary><label for="limit-plan">大事な予定</label><select id="limit-plan"><option value="">直近の予定</option>${up.map(x=>`<option value="${esc(x.p.id)}" ${x.p.id===opts.planId?'selected':''}>${esc(x.p.name||'予定')}（あと${x.day-todayN()}日）</option>`).join('')}</select><label for="limit-book">使用教材</label><select id="limit-book">${S.books.map(b=>`<option value="${esc(b.id)}" ${b.id===book.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></details>
-  <details class="card limit-details"><summary>その他</summary><p class="mu">1日の使用時間は毎日0時に戻ります。追加時間は当日限りです。</p><p class="mu">電話・設定・ホーム・キーボードなどは常に使えます。</p><button id="limit-battery" class="ghost w">アプリ情報</button>${limitDiagnosticCard()}</details>${limitLegacyRecovery()}`;
+  if(!limitNativeAvailable())return '<section class="card"><b>APKの更新が必要です</b></section>';
+  return '<section class="card"><button id="limit-launcher-open" class="pri w">開く</button><button id="limit-home" class="ghost w">ホームに設定</button></section>';
 }
-function limitEnsureDialog(){
-  if($('#limit-dialog'))return;
-  const el=document.createElement('div');el.id='limit-dialog';el.hidden=true;
-  el.innerHTML='<div class="mbox" role="dialog" aria-modal="true" aria-labelledby="limit-dialog-title"></div>';document.body.appendChild(el);
-  el.addEventListener('click',e=>{
-    if(e.target===el){closeLimitDialog();return}
-    const b=e.target.closest('button');if(!b)return;
-    if(b.dataset.limitMode){limitCaptureDraft();limitDialog.draft.mode=b.dataset.limitMode;limitRenderDialog();return}
-    if(b.id==='limit-dialog-close'||b.id==='limit-cancel'){closeLimitDialog();return}
-    if(b.id==='limit-edit-back'){clearInterval(limitConfirmTimer);limitDialog={kind:'app',app:limitDialog.app,draft:limitDialog.draft};limitRenderDialog();return}
-    if(b.id==='limit-app-save'){limitSaveApp();return}
-    if(b.id==='limit-confirm'&&!b.disabled)limitConfigure(limitDialog.action);
-  });
-  el.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeLimitDialog();return}
-    if(e.key!=='Tab')return;
-    const list=Array.from(el.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled])')).filter(x=>x.getClientRects().length);
-    if(!list.length)return;const a=list[0],z=list[list.length-1];
-    if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
-    else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
-  });
-}
-function limitShowDialog(dialog){
-  limitEnsureDialog();limitDialog=dialog;
-  if(!limitDialogOpen){limitPreviousFocus=document.activeElement;limitDialogOpen=true;pOpen($('#limit-dialog'));pushOv()}
-  limitRenderDialog();
-}
-function closeLimitDialog(fp){
-  if(!limitDialogOpen)return;clearInterval(limitConfirmTimer);limitDialogOpen=false;limitDialog=null;pClose($('#limit-dialog'));
-  if(!fp)popOv();if(limitPreviousFocus?.isConnected)limitPreviousFocus.focus({preventScroll:true});
-}
-function limitCaptureDraft(){
-  if(limitDialog?.kind!=='app')return;
-  if($('#limit-app-base'))limitDialog.draft.base=$('#limit-app-base').value;
-  if($('#limit-app-bonus'))limitDialog.draft.bonus=$('#limit-app-bonus').value;
-}
-function limitRenderDialog(){
-  clearInterval(limitConfirmTimer);const el=$('#limit-dialog .mbox'),d=limitDialog;
-  const header=title=>`<div class="mh"><b id="limit-dialog-title">${esc(title)}</b><button id="limit-dialog-close" class="ghost" aria-label="閉じる">✕</button></div>`;
-  if(d.kind==='app'){
-    el.innerHTML=header(d.app.name)+`<div class="limit-modes">${[['blocked','ロック'],['timed','時間制限'],['unlimited','無制限']].map(([k,n])=>`<button type="button" data-limit-mode="${k}" aria-pressed="${d.draft.mode===k}">${n}</button>`).join('')}</div>${d.draft.mode==='timed'?`<label for="limit-app-base">1日の使用時間</label><div class="row limit-number-row"><input id="limit-app-base" type="number" inputmode="numeric" min="0" max="1440" step="1" value="${esc(d.draft.base)}"><span>分</span></div><label for="limit-app-bonus">5問完了で追加</label><div class="row limit-number-row"><input id="limit-app-bonus" type="number" inputmode="numeric" min="0" max="180" step="1" value="${esc(d.draft.bonus)}" placeholder="${limitState.defaultBonus}"><span>分</span></div><p class="mu limit-small">空欄は共通設定（${limitState.defaultBonus}分）</p>`:''}<p id="limit-dialog-error" role="alert" class="limit-error"></p><button id="limit-app-save" class="pri w">保存</button>`;
-  }else{
-    el.innerHTML=header('制限を緩める前に')+`<p><b>${esc(d.description)}</b></p><p class="limit-warning-preview">${esc(limitWarningText())}</p><p id="limit-dialog-error" role="alert" class="limit-error"></p><button id="${d.app?'limit-edit-back':'limit-cancel'}" class="pri w">${d.app?'設定に戻る':'制限を続ける'}</button><button id="limit-confirm" class="ghost w" disabled>変更する（3秒）</button>`;
-    let seconds=3;limitConfirmTimer=setInterval(()=>{const b=$('#limit-confirm');if(!b){clearInterval(limitConfirmTimer);return}seconds--;b.textContent=seconds>0?`変更する（${seconds}秒）`:'確認して変更する';if(seconds<=0){b.disabled=false;clearInterval(limitConfirmTimer)}},1000);
-  }
-  $('#limit-dialog-close').focus({preventScroll:true});
-}
-function limitMinutes(value,max,empty=false){
-  const text=String(value).trim();if(empty&&!text)return -1;
-  if(!/^\d+$/.test(text)||!Number.isSafeInteger(Number(text))||Number(text)>max)throw new Error(`0〜${max}の整数で入力してください`);
-  return Number(text);
-}
-function limitSaveApp(){
-  limitCaptureDraft();const d=limitDialog;
-  try{
-    const action={type:'rule',package:d.app.package,mode:d.draft.mode,baseMinutes:limitMinutes(d.draft.base,1440),bonusMinutes:limitMinutes(d.draft.bonus,180,true)};
-    const old=limitRule(d.app.package),bonus=x=>x<0?limitState.defaultBonus:x;
-    const weaker=old.mode!=='unlimited'&&(action.mode==='unlimited'||action.mode==='timed'&&(old.mode==='blocked'||action.baseMinutes>old.baseMinutes||bonus(action.bonusMinutes)>bonus(old.bonusMinutes)));
-    if(limitState.enabled&&weaker){limitShowDialog({...d,kind:'confirm',action,description:d.app.name+' の使用制限を緩めます。'});return}
-    limitConfigure(action);
-  }catch(e){$('#limit-dialog-error').textContent=e.message}
-}
-function limitConfigure(action){
-  try{
-    const result=limitCall('restrictionConfigure',JSON.stringify(action));if(!result?.ok)throw new Error('設定を保存できませんでした');
-    closeLimitDialog();limitRead();render();limitSyncWarning();toast(action.type==='enabled'?(action.value?'制限を開始しました':'制限を解除しました'):'保存しました');
-  }catch(e){limitError=e.message;const err=$('#limit-dialog-error');if(limitDialogOpen&&err)err.textContent=e.message;else{render();toast(e.message)}}
-}
+function closeLimitDialog(){limitDialogOpen=false}
 function handleLimitClick(b){
-  if(b.dataset.limitApp){
-    const app=limitApps.find(a=>a.package===b.dataset.limitApp);if(!app||app.protected)return true;
-    const r=limitRule(app.package);limitShowDialog({kind:'app',app,draft:{mode:r.mode,base:String(r.baseMinutes||(!limitState.rules?.[app.package]?10:0)),bonus:r.bonusMinutes<0?'':String(r.bonusMinutes)}});return true;
-  }
-  if(b.dataset.limitFilter){limitFilter=b.dataset.limitFilter;limitVisible=80;render();return true}
-  switch(b.id){
-    case 'limit-diagnose':limitRead(true,true);render();return true;
-    case 'limit-toggle':
-      if(limitState.enabled)limitShowDialog({kind:'confirm',action:{type:'enabled',value:false},description:'すべてのアプリ制限を解除します。'});
-      else if(!limitState.serviceActive){limitCall('openRestrictionAccess');toast('ユーザー補助をオンにして戻ってください')}
-      else limitConfigure({type:'enabled',value:true});return true;
-    case 'limit-legacy-release':limitCall('requestOsSuspensionPermission');return true;
-    case 'limit-access':limitCall('openRestrictionAccess');return true;
-    case 'limit-app-info':limitCall(typeof AndroidApp.openRestrictionAppInfo==='function'?'openRestrictionAppInfo':'openRestrictionBatterySettings');return true;
-    case 'limit-usage':limitCall('openRestrictionUsageAccess');return true;
-    case 'limit-copy-diagnostics':{const raw=AndroidApp.restrictionDiagnostics();const message='学習ルーレットの動作情報\n'+raw;if(typeof AndroidApp.copyText==='function'&&AndroidApp.copyText(message))toast('コピーしました');else toast('コピーできませんでした');return true}
-    case 'limit-battery':limitCall('openRestrictionBatterySettings');return true;
-    case 'limit-reload':limitRead(true,true);render();return true;
-    case 'limit-more':limitVisible+=80;render();return true;
-    case 'limit-bonus-save':
-      try{
-        const value=limitMinutes($('#limit-default-bonus').value,180),action={type:'bonus',value};
-        if(limitState.enabled&&value>limitState.defaultBonus)limitShowDialog({kind:'confirm',action,description:'5問完了でもらえる共通の追加時間を'+value+'分に増やします。'});
-        else limitConfigure(action);
-      }catch(e){toast(e.message)}return true;
-    default:return false;
-  }
+  if(b.id==='limit-launcher-open'){limitCall('previewRestrictionHome');return true}
+  if(b.id==='limit-home'){limitCall('openRestrictionHome');return true}
+  return false;
 }
 function limitBeginSession(a,book=curBook()){
   if(!a||a.rv||!Array.isArray(a.nums)||a.nums.length!==5||!limitNativeAvailable())return;
@@ -738,7 +598,8 @@ function limitSettleRecord(record,book=curBook(),notify=false){
     const ratings={};record.nums.forEach(n=>{if(/^[ABCD]$/.test(record.r?.[n]))ratings[n]=record.r[n]});
     const result=limitCall('restrictionFinish',record.limId,book.id,JSON.stringify(ratings));
     if(result?.ok||result?.terminal){
-      record.limSettled=true;record.limAward=Array.isArray(result.credited)?result.credited:[];save();
+      record.limWalletMs=Number(result.walletMs)||0;record.limSettled=true;record.limAward=Array.isArray(result.credited)?result.credited:[];save();
+      if(notify&&!result.duplicate&&record.limWalletMs>0)toast(`持ち時間に${record.limWalletMs/60000}分追加しました`);
       if(notify&&!result.duplicate&&record.limAward.length){
         const amounts=[...new Set(record.limAward.map(a=>a.ms/60000))];
         toast(amounts.length===1?`残り時間に${amounts[0]}分追加しました`:'残り時間を追加しました');
@@ -754,29 +615,12 @@ function limitInitialise(){
 }
 function limitSessionHint(a){
   if(!limitNativeAvailable()||a.rv||!Array.isArray(a.nums)||a.nums.length!==5)return '';
-  if(!limitState?.enabled||!Object.values(limitState.rules||{}).some(r=>r.mode==='timed'))return '';
+  if(!limitState?.enabled||!limitState.wallet&&!Object.values(limitState.rules||{}).some(r=>r.mode==='timed'))return '';
   if(a.limEligible===false)return '<div class="limit-session-hint"><b>この5問の追加時間は受け取り済み</b></div>';
   const done=a.nums.filter(n=>/^[ABCD]$/.test(a.r?.[n])).length;
   return `<div class="limit-session-hint"><b>時間追加まで ${done} / 5問</b></div>`;
 }
-document.addEventListener('input',e=>{
-  if(e.target.id!=='limit-search'||e.isComposing)return;
-  const start=e.target.selectionStart,end=e.target.selectionEnd;limitQuery=e.target.value;limitVisible=80;render();
-  const field=$('#limit-search');field.focus({preventScroll:true});try{field.setSelectionRange(start,end)}catch(_){}
-});
-document.addEventListener('compositionend',e=>{if(e.target.id==='limit-search')e.target.dispatchEvent(new Event('input',{bubbles:true}))});
-document.addEventListener('change',e=>{
-  if(e.target.id==='limit-plan'){limitUi().planId=e.target.value;save();limitSyncWarning()}
-  if(e.target.id==='limit-book'){limitUi().bookId=e.target.value;save();limitSyncWarning()}
-});
-window.addEventListener('study-native-resume',()=>{if(tab==='limits'&&!limitDialogOpen){limitRead(true,true);render()}limitInitialise()});
-setInterval(()=>{
-  if(document.hidden||tab!=='limits'||limitDialogOpen||!limitNativeAvailable())return;
-  const before=limitState&&[limitState.enabled,limitState.serviceActive,limitState.homeSelected,limitState.usageAccess,limitState.lockError,limitOsSignature()].join(':');
-  if(!limitRead())return;
-  if(before!==[limitState.enabled,limitState.serviceActive,limitState.homeSelected,limitState.usageAccess,limitState.lockError,limitOsSignature()].join(':')){render();return}
-  document.querySelectorAll('[data-limit-balance]').forEach(el=>{const a=limitApps.find(a=>a.package===el.dataset.limitBalance);if(a)el.textContent=limitBalance(a)});
-},1000);
+window.addEventListener('study-native-resume',()=>{if(tab==='limits'){limitRead();render()}limitInitialise()});
 
 let bookEstimateOpen=false;
 function getBookEstimate(book,now=nowFn()){
@@ -1548,7 +1392,7 @@ function maybeGreet(){
   clearTimeout(gt);gt=setTimeout(closeGreet,3000);
 }
 $('#gdl').addEventListener('click',closeGreet);
-const TTL={roulette:'ルーレット',rev:'復習',calc:'電卓',class:'分類',log:'記録',plan:'予定表',memo:'メモ',limits:'アプリ制限',set:'設定'};
+const TTL={roulette:'ルーレット',rev:'復習',calc:'電卓',class:'分類',log:'記録',plan:'予定表',memo:'メモ',limits:'学習用ランチャー',set:'設定'};
 let curN=null,nT,nArm=false,ovH=0,ovSkip=0,drOpen=false;
 function pushOv(){try{history.pushState({ov:1},'');ovH++}catch(e){}}
 function popOv(skipEvent){if(ovH>0){ovH--;if(skipEvent)ovSkip++;try{history.back()}catch(e){if(skipEvent)ovSkip--}}}
@@ -1834,6 +1678,7 @@ document.addEventListener('mouseup',dEnd);
 document.addEventListener('touchcancel',dCancel);
 const TABS=['roulette','calc','log','other'];
 function go(t,dir){
+  if(t==='limits'&&limitNativeAvailable()){limitCall('previewRestrictionHome');return}
   const o=Math.max(0,TABS.includes(tab)?TABS.indexOf(tab):3),n=TABS.includes(t)?TABS.indexOf(t):3;
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
   anim(dir===1||dir===-1?dir:(n>o?1:-1),40,.22);
