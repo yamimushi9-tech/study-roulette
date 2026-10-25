@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-os-suspension-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-os-suspension-v1 study-bridge-nonblocking-v3">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -542,8 +542,28 @@ const curBook=()=>S.books.find(b=>b.id===S.cur)||S.books[0];
 /* アプリ制限。端末の予算はAndroid側を正とし、HTMLの復元では書き換えない。 */
 let limitState=null,limitApps=[],limitAppsLoaded=false,limitError='',limitQuery='',limitFilter='all',limitVisible=80;
 let limitDialogOpen=false,limitDialog=null,limitPreviousFocus=null,limitConfirmTimer=null;
+let limitConnection={kind:'unknown',api:0};
 function limitNativeAvailable(){
-  try{return !!window.AndroidApp&&typeof AndroidApp.restrictionApiVersion==='function'&&AndroidApp.restrictionApiVersion()>=1}catch(_){return false}
+  try{
+    if(!window.AndroidApp){limitConnection={kind:'browser',api:0};return false}
+    if(typeof AndroidApp.restrictionApiVersion!=='function'){limitConnection={kind:'old',api:0};return false}
+    const api=Number(AndroidApp.restrictionApiVersion());
+    limitConnection={kind:api>=1?'connected':'denied',api};return api>=1;
+  }catch(e){limitConnection={kind:'error',api:0,detail:e.message||'Androidとの接続に失敗しました'};return false}
+}
+function limitConnectionCard(){
+  const kind=limitConnection.kind;
+  const title=kind==='browser'?'ブラウザ版を開いています':kind==='old'?'このAPKにはアプリ制限機能が入っていません':kind==='connected'?'Androidに接続済み・設定の取得に失敗':'Androidとの接続を確認できません';
+  const copy=kind==='browser'?'ホームのWebサイト用ショートカットやChromeでは、端末のアプリを制限できません。インストール済みのAndroidアプリ「学習ルーレット」から開いてください。':kind==='old'?'修正版APKをインストールしてください。TermuxでAPKを作ったあと、Androidのインストーラーで「更新」→「開く」まで進む必要があります。':kind==='connected'?'端末の機能には接続できています。下の接続情報にあるエラーを確認し、再確認してください。':'接続確認の処理を修正した「B3」のAPKが必要です。インストール後もこの表示になる場合は、下の接続情報で状況を確認できます。';
+  let details='Android機能：'+(kind==='browser'?'なし':kind==='old'?'旧版':kind==='connected'?'接続済み（API '+limitConnection.api+'）':'応答エラー')+'\n画面：'+location.origin+'\nHTML：2026.10.25-B3';
+  if(limitConnection.detail)details+='\n'+limitConnection.detail;
+  if(limitError)details+='\n'+limitError;
+  return `<section class="card limit-attention"><b>${esc(title)}</b><p class="mu">${esc(copy)}</p>${limitError?`<p class="limit-error" role="alert">${esc(limitError)}</p>`:''}<button id="limit-diagnose" class="pri w">接続を再確認する</button><details class="limit-details"><summary>接続情報</summary><p class="limit-warning-preview">${esc(details)}</p></details></section>`;
+}
+function limitDiagnosticCard(){
+  let info={};
+  try{if(typeof AndroidApp.restrictionDiagnostics==='function')info=JSON.parse(AndroidApp.restrictionDiagnostics())}catch(_){}
+  return `<details class="card limit-details"><summary>接続とインストール状況</summary><p class="limit-warning-preview">${esc(['Android接続：正常','接続修正版：'+(info.build||limitState?.nativeBuild||'旧版'),'APK：'+(info.versionName||'版の取得に未対応'),'Android：'+(info.android||'取得に未対応'),'HTML：2026.10.25-B3'].join('\n'))}</p></details>`;
 }
 function limitCall(method,...args){
   if(!limitNativeAvailable()||typeof AndroidApp[method]!=='function')throw new Error('この機能に対応したAndroidアプリへの更新が必要です');
@@ -562,7 +582,7 @@ function limitRead(apps=false,force=false){
       limitApps=list.filter(a=>a&&typeof a.package==='string'&&typeof a.name==='string');limitAppsLoaded=true;
     }
     limitError='';return true;
-  }catch(e){limitError=e.message||'設定を確認できませんでした';return false}
+  }catch(e){limitError=e.message||'設定を確認できませんでした';limitState=null;return false}
 }
 function limitRule(pkg){return limitState?.rules?.[pkg]||{mode:'blocked',baseMinutes:0,bonusMinutes:-1,remainingMs:0,usedMs:0,earnedMs:0}}
 function limitFormat(ms){const sec=Math.max(0,Math.ceil((Number(ms)||0)/1000));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')}
@@ -616,13 +636,14 @@ function limitOsCard(){
 
 function vLimits(){
   limitRead(true);
-  if(!limitState)return `<div class="card limit-hero"><div class="limit-eyebrow">STUDY → FREE TIME</div><h2>🔒 アプリ制限</h2><p>5問を解いて、遊べる時間を増やす。</p></div><div class="card"><b>対応するAndroidアプリへの更新が必要です</b><p class="mu">端末のアプリ一覧・使用時間の計測・ほかのアプリの制限には、Android側の機能を使います。今回のAPKを一度上書き更新すると使えるようになります。</p><p class="mu">HTMLを公開しただけでは、ほかのアプリの制限は有効になりません。</p>${limitError?`<p class="limit-error">${esc(limitError)}</p>`:''}</div>`;
+  if(!limitState)return `<div class="card limit-hero"><div class="limit-eyebrow">STUDY → FREE TIME</div><h2>🔒 アプリ制限</h2><p>5問を解いて、遊べる時間を増やす。</p></div>${limitConnectionCard()}`;
   const active=limitState.enabled,working=active&&limitState.serviceActive&&!limitState.os?.recoveryPending;
   const counts={blocked:0,timed:0,unlimited:0};limitApps.forEach(a=>{if(!a.protected)counts[limitRule(a.package).mode]++});
   const up=limitUpcoming(),opts=limitUi(),book=S.books.find(b=>b.id===opts.bookId)||curBook();
   const q=limitQuery.trim().toLocaleLowerCase(),list=limitApps.filter(a=>(limitFilter==='all'||(a.protected?'protected':limitRule(a.package).mode)===limitFilter)&&(!q||(a.name+' '+a.package).toLocaleLowerCase().includes(q)));
   const rows=list.slice(0,limitVisible).map(a=>`<button class="limit-app" type="button" data-limit-app="${esc(a.package)}" ${a.protected?'disabled':''}><span class="limit-icon${limitBlocked(a)?' gray':''}" data-limit-icon="${esc(a.package)}">${limitIcon(a)}</span><span class="limit-app-copy"><b>${esc(a.name)}</b><span class="mu" data-limit-balance="${esc(a.package)}">${esc(limitBalance(a))}</span></span><span class="limit-chevron" aria-hidden="true">${a.protected?'🛡':'›'}</span></button>`).join('');
   return `<section class="card limit-hero"><div class="limit-eyebrow">STUDY → FREE TIME</div><div class="row"><h2>5問が、自由時間になる。</h2><span id="limit-status" class="limit-pill ${working?'active':''}">${esc(limitHeadlineStatus())}</span></div><p class="mu">必要なアプリは自由に。遊びの時間は、勉強で増やす。</p><div class="limit-counts"><span><b>${counts.blocked}</b>制限する</span><span><b>${counts.timed}</b>時間つき</span><span><b>${counts.unlimited}</b>無制限</span></div><button id="limit-toggle" class="${active?'ghost':'pri'} w">${active?'制限を解除する':'アプリ制限を始める'}</button><p class="mu limit-small">初期状態はすべて「制限する」です。開始前に、使いたいアプリを下の一覧で選んでください。</p></section>
+  <p class="mu limit-small" role="status">Android接続済み${limitState.nativeBuild?' · 接続修正版 '+esc(limitState.nativeBuild):''}</p>
   ${limitOsCard()}
   ${!limitState.serviceActive?'<div class="card limit-attention"><b>ユーザー補助の許可が必要です</b><p class="mu">前面アプリの識別・使用時間の計測・制限画面の表示に使います。画面の文章や入力内容は取得・保存・送信しません。</p><button id="limit-access" class="pri w">ユーザー補助を設定する</button><p class="mu limit-small">許可したあと、この画面に戻って「アプリ制限を始める」を押してください。すでに制限を開始済みの場合は、許可が戻ると再開します。</p></div>':''}
   ${limitError?`<p role="alert" class="limit-error">${esc(limitError)}</p>`:''}
@@ -630,6 +651,7 @@ function vLimits(){
   <section class="card limit-app-card"><div class="row"><label style="margin:0">端末のアプリ</label><button id="limit-reload" class="ghost limit-small">再取得</button></div><input id="limit-search" type="search" placeholder="アプリ名で検索" aria-label="アプリ名で検索" value="${esc(limitQuery)}" autocomplete="off"><div class="limit-filters" role="group" aria-label="アプリの表示を絞り込む">${[['all','すべて'],['timed','時間つき'],['unlimited','無制限'],['blocked','制限する']].map(([k,n])=>`<button type="button" data-limit-filter="${k}" aria-pressed="${limitFilter===k}">${n}</button>`).join('')}</div><p class="mu limit-small">${list.length}件${limitQuery?'の検索結果':''}・新しく入れたアプリも初期状態では制限対象です。</p><div class="limit-apps">${rows||'<p class="mu c">一致するアプリがありません。</p>'}</div>${list.length>limitVisible?'<button id="limit-more" class="ghost w">さらに表示</button>':''}</section>
   <section class="card"><label>🗓 解除するときに思い出すこと</label><label class="mu limit-small" for="limit-plan">大事な予定</label><select id="limit-plan"><option value="">直近の予定を自動で選ぶ</option>${up.map(x=>`<option value="${esc(x.p.id)}" ${x.p.id===opts.planId?'selected':''}>${esc(x.p.name||'予定')}（あと${x.day-todayN()}日）</option>`).join('')}</select><label class="mu limit-small" for="limit-book">使用教材</label><select id="limit-book">${S.books.map(b=>`<option value="${esc(b.id)}" ${b.id===book.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select><p class="limit-warning-preview">${esc(limitWarningText())}</p><p class="mu limit-small">終了予測は、教材名を押したときと同じ「今日を含む直近3日」の計算です。</p></section>
   <details class="card limit-details"><summary>任意：専用の学習ホーム</summary><p class="mu">一時停止の権限を使わず、専用の「学習ホーム」で灰色のアイコンを表示する選択肢もあります。OSの一時停止を使う場合は、今のホームのままで利用できます。</p><div class="limit-home-actions"><button id="limit-home-preview" class="ghost">試しに開く</button><button id="limit-home" class="pri">${limitState.homeSelected?'ホームの設定を確認':'学習ホームを選ぶ'}</button></div></details>
+  ${limitDiagnosticCard()}
   <details class="card limit-details"><summary>時間の数え方と使える範囲</summary><ul><li>各アプリの初期時間と獲得した時間は別々です。残り時間は、画面に表示して使っている間だけ減ります。</li><li>毎日0時に初期時間へ戻ります。追加分は当日限りです。画面ロック中・バックグラウンドでは消費しません。分割画面などで複数の対象アプリが表示される場合は、それぞれ計測します。</li><li>5問未満、途中終了、復習、個別追加、分類の変更は時間追加の対象外です。完了の判定は5問すべての自己評価と記録で行います。</li><li>再起動、設定の切り替え、学習データの復元で、使用済み時間や受け取った報酬はリセットされません。記録を削除しても、同じ教材・同じ問題への報酬は再発行されません。</li><li>電話・端末設定・ホーム・キーボードなどは保護対象です。現在のAndroidユーザーにある、通常のアプリアイコンから開けるアプリが対象です。</li><li>ユーザー補助の停止、強制停止、アンインストール、セーフモードなどを防ぐ機能ではありません。通常方式は通知やバックグラウンド音声を停止しません。権限を許可したOSの一時停止は、通知や音声も止めます。Shizukuが切れた場合は、再接続して解除を反映してください。</li><li>制限が止まる場合は端末のバッテリー設定・自動起動設定を確認してください。</li></ul><button id="limit-battery" class="ghost w">端末のアプリ情報を開く</button></details>`;
 }
 function limitEnsureDialog(){
@@ -707,6 +729,7 @@ function handleLimitClick(b){
   }
   if(b.dataset.limitFilter){limitFilter=b.dataset.limitFilter;limitVisible=80;render();return true}
   switch(b.id){
+    case 'limit-diagnose':limitRead(true,true);render();return true;
     case 'limit-toggle':
       if(limitState.enabled)limitShowDialog({kind:'confirm',action:{type:'enabled',value:false},description:'すべてのアプリ制限を解除します。'});
       else if(!limitState.serviceActive){limitCall('openRestrictionAccess');toast('許可したあと、この画面で制限を開始してください')}
