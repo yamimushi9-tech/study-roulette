@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-app-lock-v4">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-app-lock-v5">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -238,7 +238,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
 .limit-bonus{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.limit-bonus label{font-size:14px;margin:0}.limit-number-row button{min-height:44px;padding:9px 12px}
 .limit-permission .row{gap:12px}.limit-permission b{font-size:14px}.limit-permission p{margin:10px 0}.limit-permission details{margin-top:10px}.limit-permission summary{font-size:12px;color:var(--mu);cursor:pointer}
 .limit-permission ol{padding-left:20px;font-size:13px;line-height:1.8}.limit-permission li+li{margin-top:6px}
-.limit-app-card{padding-bottom:6px}.limit-app-card input[type=search]{margin-top:12px}
+.limit-app-card{padding-bottom:6px}.limit-app-card input[type=search]{margin-top:12px}.limit-recent-row{margin-top:6px;min-height:38px}.limit-recent-row button{padding:8px 10px}.limit-recent-row .mu{font-size:12px}
 .limit-filters{display:flex;gap:5px;flex-wrap:wrap;padding:10px 0}
 .limit-filters button{font-size:12px;padding:8px 10px;min-height:40px;white-space:nowrap}
 .limit-filters button[aria-pressed=true],.limit-modes button[aria-pressed=true]{border-color:var(--pri);background:color-mix(in srgb,var(--pri) 10%,var(--card));color:var(--tx)}
@@ -545,7 +545,7 @@ function limitNativeAvailable(){
     if(!window.AndroidApp){limitConnection={kind:'browser',api:0};return false}
     if(typeof AndroidApp.restrictionApiVersion!=='function'){limitConnection={kind:'old',api:0};return false}
     const api=Number(AndroidApp.restrictionApiVersion());
-    limitConnection={kind:api>=4?'connected':api>=1?'old':'denied',api};return api>=4;
+    limitConnection={kind:api>=5?'connected':api>=1?'old':'denied',api};return api>=5;
   }catch(e){limitConnection={kind:'error',api:0,detail:e.message||'Androidとの接続に失敗しました'};return false}
 }
 function limitConnectionCard(){
@@ -557,7 +557,7 @@ function limitConnectionCard(){
 function limitDiagnosticCard(){
   let info={};
   try{if(typeof AndroidApp.restrictionDiagnostics==='function')info=JSON.parse(AndroidApp.restrictionDiagnostics())}catch(_){}
-  return `<p class="mu">APK：${esc(info.versionName||limitState?.nativeBuild||'旧版')}<br>Android：${esc(info.android||'—')}</p>`;
+  return `<p class="mu">APK：${esc(info.versionName||limitState?.nativeBuild||'旧版')}<br>Android：${esc(info.android||'—')}<br>検出：${Number(info.lock?.events)||0}回 / ロック：${Number(info.lock?.blocks)||0}回${info.lock?.error?'<br>'+esc(info.lock.error):''}</p><button id="limit-copy-diagnostics" class="ghost w">動作情報をコピー</button>`;
 }
 function limitCall(method,...args){
   if(!limitNativeAvailable()||typeof AndroidApp[method]!=='function')throw new Error('この機能に対応したAndroidアプリへの更新が必要です');
@@ -573,7 +573,7 @@ function limitRead(apps=false,force=false){
     if(apps&&(!limitAppsLoaded||force)){
       const list=limitCall('restrictionApps',!!force);
       if(!Array.isArray(list))throw new Error('アプリの一覧を取得できませんでした');
-      limitApps=list.filter(a=>a&&typeof a.package==='string'&&typeof a.name==='string');limitAppsLoaded=true;
+      limitApps=list.filter(a=>a&&typeof a.package==='string'&&typeof a.name==='string').sort((a,b)=>(Number(b.lastUsed)||0)-(Number(a.lastUsed)||0));limitAppsLoaded=true;
     }
     limitError='';return true;
   }catch(e){limitError=e.message||'設定を確認できませんでした';limitState=null;return false}
@@ -603,7 +603,7 @@ function limitWarningText(){
 }
 function limitSyncWarning(){if(!limitNativeAvailable())return;try{limitCall('restrictionWarning',limitWarningText())}catch(_){}}
 function limitHeadlineStatus(){
-  return limitState?.enabled?(limitState.serviceActive?'制限中':'権限が無効'):'停止中';
+  return limitState?.enabled?(limitState.serviceActive?(limitState.lockError?'要確認':'制限中'):'権限が無効'):'停止中';
 }
 function limitOsSignature(){const os=limitState?.os;return os?JSON.stringify([os.busy,os.managedCount,os.recoveryPending]):''}
 function limitLegacyRecovery(){
@@ -622,9 +622,10 @@ function vLimits(){
   const rows=list.slice(0,limitVisible).map(a=>`<button class="limit-app" type="button" data-limit-app="${esc(a.package)}"><span class="limit-icon" data-limit-icon="${esc(a.package)}">${limitIcon(a)}</span><span class="limit-app-copy"><b>${esc(a.name)}</b><span class="mu" data-limit-balance="${esc(a.package)}">${esc(limitBalance(a))}</span></span><span class="limit-chevron" aria-hidden="true">›</span></button>`).join('');
   return `<section class="card limit-control"><span id="limit-status" class="limit-pill ${working?'active':''}" role="status">${esc(limitHeadlineStatus())}</span><button id="limit-toggle" class="${active?'ghost':'pri'}">${active?'制限を解除':'制限を開始'}</button></section>
   ${!limitState.serviceActive?limitAccessHelp():''}
+  ${limitState.lockError?'<p class="limit-error" role="alert">ロック画面の表示エラーがあります。対象アプリをホームへ戻す方式で制限します。</p>':''}
   ${limitError?`<p role="alert" class="limit-error">${esc(limitError)}</p>`:''}
   <section class="card limit-bonus"><label for="limit-default-bonus">5問完了で追加</label><div class="row limit-number-row"><input id="limit-default-bonus" type="number" min="0" max="180" step="1" inputmode="numeric" value="${limitState.defaultBonus}" aria-label="5問完了の追加時間（分）"><span>分</span><button id="limit-bonus-save" class="ghost">保存</button></div></section>
-  <section class="card limit-app-card"><div class="row"><b>アプリ</b><button id="limit-reload" class="ghost limit-small">更新</button></div><input id="limit-search" type="search" placeholder="アプリを検索" aria-label="アプリを検索" value="${esc(limitQuery)}" autocomplete="off"><div class="limit-filters" role="group" aria-label="アプリの表示を絞り込む">${[['all','すべて'],['blocked','ロック'],['timed','時間制限'],['unlimited','無制限']].map(([k,n])=>`<button type="button" data-limit-filter="${k}" aria-pressed="${limitFilter===k}">${n}</button>`).join('')}</div><p class="limit-list-note">${list.length}件 · 未設定のアプリはロック</p><div class="limit-apps">${rows||'<p class="mu c">アプリがありません</p>'}</div>${list.length>limitVisible?'<button id="limit-more" class="ghost w">さらに表示</button>':''}</section>
+  <section class="card limit-app-card"><div class="row"><b>アプリ</b><button id="limit-reload" class="ghost limit-small">更新</button></div><input id="limit-search" type="search" placeholder="アプリを検索" aria-label="アプリを検索" value="${esc(limitQuery)}" autocomplete="off"><div class="row limit-recent-row"><span class="mu">最近使った順</span>${!limitState.usageAccess?'<button id="limit-usage" class="ghost limit-small">履歴を許可</button>':''}</div><div class="limit-filters" role="group" aria-label="アプリの表示を絞り込む">${[['all','すべて'],['blocked','ロック'],['timed','時間制限'],['unlimited','無制限']].map(([k,n])=>`<button type="button" data-limit-filter="${k}" aria-pressed="${limitFilter===k}">${n}</button>`).join('')}</div><p class="limit-list-note">${list.length}件 · 未設定のアプリはロック${!limitState.usageAccess?'<br>許可すると、これまでの使用履歴も反映します':''}</p><div class="limit-apps">${rows||'<p class="mu c">アプリがありません</p>'}</div>${list.length>limitVisible?'<button id="limit-more" class="ghost w">さらに表示</button>':''}</section>
   <details class="card limit-details limit-options"><summary>解除時の確認メッセージ</summary><label for="limit-plan">大事な予定</label><select id="limit-plan"><option value="">直近の予定</option>${up.map(x=>`<option value="${esc(x.p.id)}" ${x.p.id===opts.planId?'selected':''}>${esc(x.p.name||'予定')}（あと${x.day-todayN()}日）</option>`).join('')}</select><label for="limit-book">使用教材</label><select id="limit-book">${S.books.map(b=>`<option value="${esc(b.id)}" ${b.id===book.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></details>
   <details class="card limit-details"><summary>その他</summary><p class="mu">1日の使用時間は毎日0時に戻ります。追加時間は当日限りです。</p><p class="mu">電話・設定・ホーム・キーボードなどは常に使えます。</p><button id="limit-battery" class="ghost w">アプリ情報</button>${limitDiagnosticCard()}</details>${limitLegacyRecovery()}`;
 }
@@ -711,6 +712,8 @@ function handleLimitClick(b){
     case 'limit-legacy-release':limitCall('requestOsSuspensionPermission');return true;
     case 'limit-access':limitCall('openRestrictionAccess');return true;
     case 'limit-app-info':limitCall(typeof AndroidApp.openRestrictionAppInfo==='function'?'openRestrictionAppInfo':'openRestrictionBatterySettings');return true;
+    case 'limit-usage':limitCall('openRestrictionUsageAccess');return true;
+    case 'limit-copy-diagnostics':{const raw=AndroidApp.restrictionDiagnostics();const message='学習ルーレットの動作情報\n'+raw;if(typeof AndroidApp.copyText==='function'&&AndroidApp.copyText(message))toast('コピーしました');else toast('コピーできませんでした');return true}
     case 'limit-battery':limitCall('openRestrictionBatterySettings');return true;
     case 'limit-reload':limitRead(true,true);render();return true;
     case 'limit-more':limitVisible+=80;render();return true;
@@ -766,12 +769,12 @@ document.addEventListener('change',e=>{
   if(e.target.id==='limit-plan'){limitUi().planId=e.target.value;save();limitSyncWarning()}
   if(e.target.id==='limit-book'){limitUi().bookId=e.target.value;save();limitSyncWarning()}
 });
-window.addEventListener('study-native-resume',()=>{if(tab==='limits'&&!limitDialogOpen){limitRead();render()}limitInitialise()});
+window.addEventListener('study-native-resume',()=>{if(tab==='limits'&&!limitDialogOpen){limitRead(true,true);render()}limitInitialise()});
 setInterval(()=>{
   if(document.hidden||tab!=='limits'||limitDialogOpen||!limitNativeAvailable())return;
-  const before=limitState&&[limitState.enabled,limitState.serviceActive,limitState.homeSelected,limitOsSignature()].join(':');
+  const before=limitState&&[limitState.enabled,limitState.serviceActive,limitState.homeSelected,limitState.usageAccess,limitState.lockError,limitOsSignature()].join(':');
   if(!limitRead())return;
-  if(before!==[limitState.enabled,limitState.serviceActive,limitState.homeSelected,limitOsSignature()].join(':')){render();return}
+  if(before!==[limitState.enabled,limitState.serviceActive,limitState.homeSelected,limitState.usageAccess,limitState.lockError,limitOsSignature()].join(':')){render();return}
   document.querySelectorAll('[data-limit-balance]').forEach(el=>{const a=limitApps.find(a=>a.package===el.dataset.limitBalance);if(a)el.textContent=limitBalance(a)});
 },1000);
 
