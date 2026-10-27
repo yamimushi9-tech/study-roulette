@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -496,7 +496,7 @@ function vLog(){
       const tm=new Date(s.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
       const ar=delArm===s.ts,ty=s.mv?'分類変更':s.one?'個別追加':s.rv?'📚復習 ⏱'+fmt(s.ms):'🎯 ⏱'+fmt(s.ms);
       const fx=s.c&&!s.mv?`<button class="fx${s.fx?' ok':''}" data-fx="${s.ts}">${s.fx?'✅ 対策済み':'⚠ 未対策'}</button>`:'';
-      return `<div class="rec"><div class="rl"><div><b>${full.length-full.indexOf(s)}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.limWalletMs?'<div class="limit-award">持ち時間 ＋'+s.limWalletMs/60000+'分</div>':s.limAward?.length?'<div class="limit-award">🎁 '+s.limAward.length+'個のアプリに時間を追加</div>':s.limId&&!s.limSettled?'<div class="mu limit-small">時間追加を次回起動時に再確認します</div>':''}</div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
+      return `<div class="rec"><div class="rl"><div><b>${full.length-full.indexOf(s)}回目</b> <span class="mu">${tm}</span></div><div class="mu">${ty}</div><div>${s.nums.map(n=>chip(n,s.r[n])).join('')}</div>${s.limWalletMs?'<div class="limit-award">持ち時間 ＋'+limitRewardTime(s.limWalletMs)+'</div>':s.limAward?.length?'<div class="limit-award">🎁 '+s.limAward.length+'個のアプリに時間を追加</div>':s.limId&&!s.limSettled?'<div class="mu limit-small">時間追加を次回起動時に再確認します</div>':''}</div><div class="rr"><div class="rc${s.c?'':' mu'}">${s.c?esc(s.c):'（反省なし）'}</div><div class="ra">${fx}<button class="dl${ar?' arm':''}" data-del="${s.ts}">${ar?'もう一度タップで削除（未修に戻ります）':'🗑'}</button></div></div></div>`;
     }).join('');
   }).join('');
   return bar+'<p class="mu">'+notation()+'</p>'+(body||(logF?'<p class="mu c">未対策の記録はありません 🎉</p>':''));
@@ -522,6 +522,8 @@ function limitNativeAvailable(){
     limitConnection={kind:api>=8?'connected':api>=1?'old':'denied',api};return api>=8;
   }catch(e){limitConnection={kind:'error',api:0,detail:e.message||'Androidとの接続に失敗しました'};return false}
 }
+function limitPartialRewardsAvailable(){return limitNativeAvailable()&&limitConnection.api>=9}
+function limitRewardTime(millis){const seconds=Math.floor(Math.max(0,Number(millis)||0)/1000);return `${Math.floor(seconds/60)}分${seconds%60}秒`}
 function limitConnectionCard(){
   const kind=limitConnection.kind;
   const title=kind==='browser'?'Androidアプリから開いてください':kind==='old'?'APKの更新が必要です':'Androidとの接続を確認できません';
@@ -601,7 +603,7 @@ function handleLimitClick(b){
   return false;
 }
 function limitBeginSession(a,book=curBook()){
-  if(!a||a.rv||!Array.isArray(a.nums)||a.nums.length!==5||!limitNativeAvailable())return;
+  if(!a||a.rv||!Array.isArray(a.nums)||a.nums.length<1||a.nums.length>5||!limitNativeAvailable()||a.nums.length<5&&!limitPartialRewardsAvailable())return;
   limitRead();
   if(!a.limId){a.limId='draw-'+uid()+'-'+uid();if(!save())return}
   try{const res=limitCall('restrictionBegin',a.limId,book.id,JSON.stringify(a.nums));a.limRegistered=!!res?.ok;a.limEligible=res?.eligible!==false;save()}catch(_){a.limRegistered=false}
@@ -609,14 +611,19 @@ function limitBeginSession(a,book=curBook()){
 function limitSettleRecord(record,book=curBook(),notify=false){
   if(!record.limId||record.limSettled||!limitNativeAvailable())return;
   try{
+    if(record.limSource==='search'){
+      if(!limitPartialRewardsAvailable())return;
+      const registered=limitCall('restrictionBegin',record.limId,book.id,JSON.stringify(record.nums));
+      if(!registered?.ok)return;
+    }
     const ratings={};record.nums.forEach(n=>{if(/^[ABCD]$/.test(record.r?.[n]))ratings[n]=record.r[n]});
     const result=limitCall('restrictionFinish',record.limId,book.id,JSON.stringify(ratings));
     if(result?.ok||result?.terminal){
       record.limWalletMs=Number(result.walletMs)||0;record.limSettled=true;record.limAward=Array.isArray(result.credited)?result.credited:[];save();
-      if(notify&&!result.duplicate&&record.limWalletMs>0)toast(`持ち時間に${record.limWalletMs/60000}分追加しました`);
+      if(notify&&!result.duplicate&&record.limWalletMs>0)toast(`持ち時間に${limitRewardTime(record.limWalletMs)}追加しました`);
       if(notify&&!result.duplicate&&record.limAward.length){
-        const amounts=[...new Set(record.limAward.map(a=>a.ms/60000))];
-        toast(amounts.length===1?`残り時間に${amounts[0]}分追加しました`:'残り時間を追加しました');
+        const amounts=[...new Set(record.limAward.map(a=>limitRewardTime(a.ms)))];
+        toast(amounts.length===1?`残り時間に${amounts[0]}追加しました`:'残り時間を追加しました');
       }
     }
   }catch(_){/* A saved record remains pending; startup retries the native transaction. */}
@@ -628,11 +635,13 @@ function limitInitialise(){
   limitSyncWarning();
 }
 function limitSessionHint(a){
-  if(!limitNativeAvailable()||a.rv||!Array.isArray(a.nums)||a.nums.length!==5)return '';
+  if(!limitNativeAvailable()||a.rv||!Array.isArray(a.nums)||a.nums.length<1||a.nums.length>5||a.nums.length<5&&!limitPartialRewardsAvailable())return '';
   if(!limitState?.enabled||!limitState.wallet&&!Object.values(limitState.rules||{}).some(r=>r.mode==='timed'))return '';
-  if(a.limEligible===false)return '<div class="limit-session-hint"><b>この5問の追加時間は受け取り済み</b></div>';
+  if(a.limEligible===false)return '<div class="limit-session-hint"><b>この問題の追加時間は受け取り済み</b></div>';
   const done=a.nums.filter(n=>/^[ABCD]$/.test(a.r?.[n])).length;
-  return `<div class="limit-session-hint"><b>時間追加まで ${done} / 5問</b></div>`;
+  const bonus=(limitState.wallet?.bonusMinutes??limitState.defaultBonus??5)*60000;
+  const millis=done===5?bonus:limitPartialRewardsAvailable()?done*45000:0;
+  return `<div class="limit-session-hint"><b>記録で ＋${limitRewardTime(millis)}</b></div>`;
 }
 window.addEventListener('study-native-resume',()=>{if(tab==='limits'){limitRead();render()}limitInitialise()});
 window.addEventListener('study-native-pause',limitSyncWarning);
@@ -1542,9 +1551,20 @@ function schOne(){
   sId=p*1000+q;sMsg='';rdOne();
 }
 function recOne(id,g){
-  S.log.push({ts:Date.now(),nums:[id],r:{[id]:g},ms:0,one:1,c:sC.trim()});
+  if(!/^[ABCD]$/.test(g)||S.act?.nums.includes(id))return;
+  const beforeUsed=S.used.slice(),beforeRated={...S.rated};
+  const first=!beforeUsed.includes(id)&&!/^[ABCD]$/.test(beforeRated[id]);
+  const record={ts:Date.now(),nums:[id],r:{[id]:g},ms:0,one:1,c:sC.trim()};
+  if(first&&limitPartialRewardsAvailable()){record.limId='search-'+uid()+'-'+uid();record.limSource='search'}
+  S.log.push(record);
   if(!S.used.includes(id))S.used.push(id);
-  S.rated[id]=g;sMsg=lab(id)+' を '+g+' で記録しました（記録ページに追加）';sC='';sR='';sId=0;sIn=['',''];save();rdOne();
+  S.rated[id]=g;
+  if(!save()){
+    S.log.pop();S.used=beforeUsed;S.rated=beforeRated;
+    sMsg='端末に記録を保存できませんでした。空き容量を確認してください。時間はまだ追加していません。';rdOne();return;
+  }
+  limitSettleRecord(record,curBook(),true);limitSyncWarning();
+  sMsg=lab(id)+' を '+g+' で記録しました（記録ページに追加）';sC='';sR='';sId=0;sIn=['',''];rdOne();
 }
 function delOne(id){
   S.log.forEach(x=>{if(x.nums.includes(id)){x.nums=x.nums.filter(n=>n!==id);delete x.r[id]}});
@@ -1608,15 +1628,15 @@ $('#app').addEventListener('click',e=>{
     if(!dn.length)return say('#msg','1問以上、A〜Dの評価をつけてください');
     const ms=el(),beforeUsed=S.used.slice(),beforeRated={...S.rated};
     const record={ts:Date.now(),nums:dn,r:{...a.r},ms:ms,c:a.comment.trim(),rv:a.rv};
-    if(!a.rv&&a.nums.length===5&&dn.length===5&&a.limId&&a.limRegistered)record.limId=a.limId;
+    if(!a.rv&&a.limId&&a.limRegistered&&(dn.length===5||limitPartialRewardsAvailable()))record.limId=a.limId;
     S.log.push(record);
     dn.forEach(n=>{S.rated[n]=a.r[n];if(!S.used.includes(n))S.used.push(n)});
     S.act=null;
     if(!save()){S.log.pop();S.used=beforeUsed;S.rated=beforeRated;S.act=a;return say('#msg','端末に記録を保存できませんでした。空き容量を確認してください。時間はまだ追加していません。')}
     go('log');
     limitSettleRecord(record,curBook(),true);limitSyncWarning();
-    if(record.limAward?.length)render();
-    else if(!a.rv&&a.nums.length===5&&dn.length<5&&limitNativeAvailable())toast('学習を記録しました。時間追加には5問すべての評価が必要です');
+    if(record.limWalletMs>0||record.limAward?.length)render();
+    else if(!a.rv&&dn.length<5&&limitNativeAvailable()&&!limitPartialRewardsAvailable())toast('1問45秒の追加にはAPKの更新が必要です');
   }
   else if(id==='undo'){
     if(!undoArm){undoArm=true;render();return}
