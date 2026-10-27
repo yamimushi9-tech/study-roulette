@@ -195,8 +195,11 @@ details.pf>summary{cursor:pointer;font-weight:700}
 @keyframes sl{from{opacity:.2;transform:translateX(var(--sx,0))}to{opacity:1;transform:none}}
 .rwdetail{margin:12px 0 14px;border-top:1px solid var(--bd);padding-top:12px}
 .rwdetail>summary{cursor:pointer;font-weight:700}
-.rw{display:grid;grid-template-columns:3.6em minmax(0,1fr) 2.2em;align-items:center;column-gap:8px;padding:4px 0;border-top:1px solid var(--bd)}
+.rw{display:grid;grid-template-columns:4.8em minmax(0,1fr) 2.2em;align-items:center;column-gap:8px;padding:8px 0;border-top:1px solid var(--bd)}
 .rw label{margin:0;white-space:nowrap}
+.rw-part{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.rw-order{margin:0;padding:5px 8px;min-height:40px;font-size:12px;white-space:nowrap;color:var(--mu);background:transparent;border:1px solid var(--bd);border-radius:9px}
+.rw-order[aria-pressed="true"]{background:var(--pri);border-color:var(--pri);color:var(--pt)}
 .rw output{text-align:right;color:var(--pri);font-weight:800;font-variant-numeric:tabular-nums}
 .rw input[type="range"]{display:block;min-width:0;width:100%;height:36px;margin:0;padding:0;border:0;background:transparent;accent-color:var(--pri);-webkit-appearance:none;appearance:none;cursor:pointer}
 .rw input[type="range"]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(to right,var(--pri) 0%,var(--pri) var(--rw-fill,50%),var(--bd) var(--rw-fill,50%),var(--bd) 100%)}
@@ -204,7 +207,8 @@ details.pf>summary{cursor:pointer;font-weight:700}
 .rw input[type="range"]::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(to right,var(--pri) 0%,var(--pri) var(--rw-fill,50%),var(--bd) var(--rw-fill,50%),var(--bd) 100%)}
 .rw input[type="range"]::-moz-range-thumb{box-sizing:border-box;width:26px;height:26px;border:3px solid #fff;border-radius:50%;background:var(--pri);box-shadow:0 0 0 2px var(--pri),0 2px 6px rgba(0,0,0,.3)}
 .rw input:disabled{opacity:.4}
-.rw .rwinfo{grid-column:1/-1;margin:0;color:var(--mu);font-size:12px;line-height:1.4}
+.rw .rwinfo{grid-column:2/-1;margin:0;color:var(--mu);font-size:12px;line-height:1.4}
+#msg:empty{display:none}
 
 #book-estimate-dialog{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.55);opacity:0;transition:opacity .18s}
 #book-estimate-dialog[hidden]{display:none}
@@ -257,14 +261,14 @@ details.pf>summary{cursor:pointer;font-weight:700}
 </div>
 <div id="ndl" hidden>
   <div class="nh"><button id="nb" class="ghost">← 戻る</button><span class="mu" id="nd"></span><button id="ndel" class="ghost">🗑</button></div>
-  <textarea id="nt" placeholder="メモを入力（1行目がタイトルになります）"></textarea>
+  <textarea id="nt" placeholder="メモ（1行目がタイトル）"></textarea>
 </div>
 <div id="mdl" hidden>
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mt">
     <div class="mh"><b id="mt">＋ 教材を追加</b><button id="mx" class="ghost" aria-label="閉じる">✕</button></div>
     <input id="nn" placeholder="教材名（例: 日本史）" maxlength="30">
     <input id="np" placeholder="各部の問題数（例: 20,20,15）" style="margin-top:8px">
-    <p class="mu" style="margin:8px 0 0">第1部から順に入力します。部ごとに1から始まる教材は問題数（例: 8,4,6）、問題番号が全部通しの教材は範囲（例: 1-8,9-20,21-35）で入力します。</p>
+    <p class="mu" style="margin:8px 0 0">問題数：8,4,6 ／ 通し番号：1-8,9-20</p>
     <p class="mu" id="amsg" style="min-height:20px;margin:6px 0 0"></p>
     <button id="nadd" class="pri w">追加して切り替える</button>
   </div>
@@ -272,7 +276,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
 <div id="hdl" hidden>
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="ht">
     <div class="mh"><b id="ht">🕘 計算履歴</b><button id="hx" class="ghost" aria-label="閉じる">✕</button></div>
-    <p class="mu" style="margin:0 0 8px">タップすると、その答えを電卓に入れます。</p>
+    
     <div id="hlist" class="hl"></div>
     <button id="hclr" class="ghost w">🗑 履歴を消す</button>
   </div>
@@ -294,7 +298,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
     </div>
     <div class="cal-scroll" id="calendar-scroll">
     <div class="cal-grid" id="calendar-grid" role="group" aria-label="日付"></div>
-    <p class="cal-help">祝日は赤字、色付きのマスは予定あり、○は今日です。日付をタップして予定を確認・追加できます。</p>
+    
     <p class="cal-help" id="calendar-holiday-note" hidden></p>
     </div>
   </div>
@@ -309,33 +313,30 @@ details.pf>summary{cursor:pointer;font-weight:700}
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="book-estimate-title" aria-describedby="book-estimate-name">
     <div class="mh"><b id="book-estimate-title">📘 教材の完了予測</b><button type="button" id="book-estimate-close" class="ghost" aria-label="完了予測を閉じる">✕</button></div>
     <p id="book-estimate-name"></p>
-    <p class="be-label">この教材が終わるまでの推定日数<br><span class="mu">直近3日のペース</span></p>
+    <p class="be-label">終了まで<br><span class="mu">直近3日のペース</span></p>
     <div class="be-primary" id="book-estimate-primary"></div>
     <p class="be-basis" id="book-estimate-three"></p>
     <div class="be-secondary">
-      <p class="be-label">直近7日のペースでは</p>
+      <p class="be-label">直近7日のペース</p>
       <div id="book-estimate-secondary"></div>
       <p class="be-basis" id="book-estimate-seven"></p>
     </div>
     <p id="book-estimate-progress"></p>
-    <p class="be-help">今日を含む3日間・7日間で平均します。記録がない日も0問として計算します。<br>学習の記録だけを集計します（復習・個別追加を含む）。</p>
+    
   </div>
 </div>
 <div id="rdl" hidden>
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="rt">
-    <div class="mh"><b id="rt">⚙ ルーレットの設定</b><button id="rx" class="ghost" aria-label="閉じる">✕</button></div>
+    <div class="mh"><b id="rt">ルーレット設定</b><button id="rx" class="ghost" aria-label="閉じる">✕</button></div>
     <p class="mu" style="margin:0" id="rbk"></p>
-    <p class="mu" style="margin:8px 0 0">出題する部をタップで選びます（色が付いた部だけ出題）。</p>
     <div class="sq" id="rsq"></div>
     <details class="rwdetail">
-      <summary>🎚 部ごとの出やすさ（0〜100）</summary>
-      <p class="mu">0〜100で調整。0は出題なし、50が標準、100は50の2倍の重みです。</p>
+      <summary>部ごとの出やすさ</summary>
       <div id="rweights"></div>
-      <p class="mu">「次の1問」は、今の未修問題から最初に1問選ぶ場合の確率です。5問は重複なしで抽選します。設定は教材ごとに自動保存します。</p>
     </details>
     <p class="mu c" id="rsum" style="margin:0"></p>
     <p class="mu c" id="rmsg" style="min-height:20px;margin:4px 0 0"></p>
-    <button id="rreset" class="ghost w">↺ デフォルトに戻す（全部の部・出やすさ50）</button>
+    <button id="rreset" class="ghost w">リセット</button>
     <button id="rok" class="pri w">閉じる</button>
   </div>
 </div>
@@ -362,6 +363,7 @@ function mkS(src){
     if(!Array.isArray(b.used))b.used=[];
     if(!b.rated||typeof b.rated!=='object')b.rated={};
     if(!Array.isArray(b.log))b.log=[];
+    if(Array.isArray(b.fromStart))b.fromStart=b.parts.map((_,i)=>b.fromStart[i]===true);
     if(b.act===undefined)b.act=null;
     // 旧版で抽選時に既修扱いとなった、まだ記録していない問題だけを戻す。
     if(b.act&&!b.act.rv&&Array.isArray(b.act.nums)){
@@ -392,6 +394,7 @@ function partWeight(part,b=curBook()){
   const value=Array.isArray(b.weights)?b.weights[part-1]:undefined;
   return typeof value==='number'&&Number.isFinite(value)?Math.max(0,Math.min(100,Math.round(value))):50;
 }
+const partFromStart=(part,b=curBook())=>Array.isArray(b.fromStart)&&b.fromStart[part-1]===true;
 const drawPool=()=>pool().filter(id=>partWeight(Math.floor(id/1000))>0);
 function pickProblems(source,review){
   const remaining=source.slice(),picked=[];
@@ -406,6 +409,11 @@ function pickProblems(source,review){
       if(ticket<0)break;
     }
     if(index<0)break;
+    if(!review&&partFromStart(Math.floor(remaining[index]/1000))){
+      const part=Math.floor(remaining[index]/1000);let first=index;
+      for(let i=0;i<remaining.length;i++)if(Math.floor(remaining[i]/1000)===part&&remaining[i]<remaining[first])first=i;
+      index=first;
+    }
     picked.push(remaining.splice(index,1)[0]);
   }
   return picked.sort((a,b)=>a-b);
@@ -414,7 +422,7 @@ const total=()=>S.parts.reduce((t,c)=>t+c,0);
 const stA=()=>{const b=curBook();return Array.isArray(b.st)&&b.st.length===b.parts.length&&b.st.every(x=>Number.isInteger(x)&&x>=1)?b.st:null};
 const num=id=>{const st=stA(),q=id%1000;return st?st[Math.floor(id/1000)-1]+q-1:q};
 const lab=id=>stA()?`第${Math.floor(id/1000)}部 ${num(id)}番`:`第${Math.floor(id/1000)}部 ${id%1000}問目`,sh=id=>stA()?String(num(id)):Math.floor(id/1000)+'-'+id%1000;
-const notation=()=>stA()?'表記は問題番号（例: 12 = 12番）':'表記は「部-問」（例: 8-15 = 第8部の15問目）';
+const notation=()=>stA()?'通し番号':'部-問';
 const specStr=b=>Array.isArray(b.st)&&b.st.length===b.parts.length?b.parts.map((c,i)=>b.st[i]+'-'+(b.st[i]+c-1)).join(','):b.parts.join(',');
 function parseSpec(v){
   const E1='各部の問題数を、カンマ区切りの数（例: 8,4,6）か、範囲（例: 1-8,9-20）で入力してください';
@@ -444,33 +452,33 @@ const cdList=()=>Object.keys(S.rated).map(Number).filter(n=>S.rated[n]==='C'||S.
 const chip=(n,g,d)=>`<span class="chip c${g}"${d?` data-id="${n}"`:''}>${sh(n)}${g?' '+g:''}</span>`;
 
 function setupForm(t){
-  return `<div class="card"><label>${t}</label><input id="tot" value="${esc(specStr(curBook()))}"><p class="mu">第1部から順に入力します。部ごとに問題番号が1から始まる教材は問題数（例: 8,4,6）、問題番号が全部通しの教材は範囲（例: 1-8,9-20,21-35）で入力します。（現在 ${S.parts.length}部・計${total()}問${stA()?'・通し番号':''}）</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
+  return `<div class="card"><label>${t}</label><input id="tot" value="${esc(specStr(curBook()))}"><p class="mu">問題数：8,4,6 ／ 範囲：1-8,9-20<br>${S.parts.length}部・${total()}問</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
 }
 function vRoulette(){
   const pa=pool(1),p=drawPool(),T=total(),done=T-pa.length,sel=selA();
   let h=`<div class="card"><div class="row"><span>未修 <b>${pa.length}</b> / ${T} 問</span><span class="row"><span class="mu">${Math.round(done/T*100)}% 完了</span><button class="rg${sel?' on':''}" id="rcfg" aria-label="ルーレットの設定">⚙</button></span></div><div class="bar"><i style="width:${done/T*100}%"></i></div>${sel?`<p class="mu" style="margin:8px 0 0">🎛 出題対象: 第${rng(sel)}部（残り ${p.length}問）</p>`:''}</div>`;
   if(S.act)return h+(S.act.rv?'<div class="card c mu">📚 復習中です。「復習」タブで続けてください</div>':vSession())+vOne();
   h+=`<div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="spin" ${p.length?'':'disabled'}>🎯 ルーレットを回す</button>`;
-  if(!p.length)h+=!pa.length?'<p class="c mu">全問題を一巡しました 🎉</p>':pool().length?'<p class="c mu">出題対象の出やすさがすべて0です。<br>⚙ から1つ以上の部を1〜100にしてください。</p>':'<p class="c mu">選んだ部の問題は一巡しました 🎉<br>⚙ から出題する部を変えられます</p>';
+  if(!p.length)h+=!pa.length?'<p class="c mu">全問題を一巡しました 🎉</p>':pool().length?'<p class="c mu">出やすさがすべて0です</p>':'<p class="c mu">選択中の部は完了しました</p>';
   return h+vOne();
 }
 function vRev(){
   if(S.act)return S.act.rv?vSession():'<div class="card c mu">🎯 ルーレット中です。完了してから復習できます</div>';
   const cd=cdList(),nd=cd.filter(n=>S.rated[n]==='D').length;
-  return `<div class="card"><label>📚 復習</label><p class="mu">C・D評価の問題からランダムに5問を出題します（現在 D: ${nd}問 ／ C: ${cd.length-nd}問）。評価を付け直すと分類が更新されます。</p></div><div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="rv" ${cd.length?'':'disabled'}>📚 復習ルーレットを回す</button>${cd.length?'':'<p class="c mu">C・Dの問題がまだありません</p>'}`;
+  return `<div class="card"><label>📚 復習</label><p class="mu">D ${nd}問 ／ C ${cd.length-nd}問</p></div><div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="rv" ${cd.length?'':'disabled'}>📚 復習ルーレットを回す</button>${cd.length?'':'<p class="c mu">C・Dなし</p>'}`;
 }
 function vSession(){
   const a=S.act;
   let h=limitSessionHint(a)+(a.rv?'<p class="mu c">📚 復習セッション（C・D評価の問題から出題）</p>':'')+`<div class="card tcard"><span class="ais tsp"><a href="${esc(AI.find(x=>x[0]==='Studyplus')[1])}">Studyplus</a></span><div class="timer" id="tm">${fmt(el())}</div><div class="row"><button id="tgo" class="${a.t0?'':'pri'}">${a.t0?'⏸ 一時停止':'▶ 開始'}</button><button id="trs" class="ghost">リセット</button></div></div>`;
   a.nums.forEach(n=>{h+=`<div class="card prob"><div class="num">${lab(n)}${a.rv?`<br><small>現在の評価 ${S.rated[n]}</small>`:''}</div><div class="rt">${['A','B','C','D'].map(g=>`<button class="g g${g} ${a.r[n]===g?'on':''}" data-n="${n}" data-g="${g}">${g}</button>`).join('')}</div></div>`});
-  h+=`<div class="card"><label>📝 反省コメント</label><textarea id="cm" rows="4" placeholder="できなかった理由、次に気をつけること…">${esc(a.comment)}</textarea></div><p id="msg" class="mu c">${a.rv?'評価をつけなかった問題は、元の評価のままです':'評価をつけなかった問題は、記録されず未修に戻ります'}</p><button class="big" id="fin">✅ 完了して記録する</button><button class="ghost w" id="undo">${undoArm?(a.rv?'もう一度押すとやめます':'もう一度押すと未修に戻します'):(a.rv?'やめる（復習を中止）':'やり直し（この問題を未修に戻す）')}</button>`;
+  h+=`<div class="card"><label>📝 反省コメント</label><textarea id="cm" rows="4" placeholder="できなかった理由、次に気をつけること…">${esc(a.comment)}</textarea></div><p id="msg" class="mu c" role="status"></p><button class="big" id="fin">✅ 完了して記録する</button><button class="ghost w" id="undo">${undoArm?(a.rv?'もう一度押すとやめます':'もう一度押すと未修に戻します'):(a.rv?'やめる（復習を中止）':'やり直し（この問題を未修に戻す）')}</button>`;
   return h;
 }
 function vClass(){
   const g={A:[],B:[],C:[],D:[]};
   Object.keys(S.rated).forEach(n=>g[S.rated[n]]&&g[S.rated[n]].push(+n));
   const names={D:'要復習',C:'もう少し',B:'まあまあ',A:'完璧'};
-  let h=`<p class="mu">未修: ${pool(1).length}問 ／ ${notation()}<br>💡 番号を長押ししてドラッグすると、別の評価へ移せます</p>`;
+  let h=`<p class="mu">未修: ${pool(1).length}問 ／ ${notation()}</p>`;
   ['D','C','B','A'].forEach(k=>{
     g[k].sort((x,y)=>x-y);
     h+=`<div class="card gh c${k}" data-g="${k}"><div class="row"><b style="color:var(--c);font-size:18px">${k} <span style="font-size:13px">${names[k]}</span></b><span class="mu">${g[k].length}問</span></div><div>${g[k].length?g[k].map(n=>chip(n,'',1)).join(''):'<span class="mu">なし</span>'}</div></div>`;
@@ -479,7 +487,7 @@ function vClass(){
 }
 const pend=s=>s.c&&!s.mv&&!s.fx;
 function vLog(){
-  if(!S.log.length)return '<p class="mu c">まだ記録がありません。ルーレットを回して解いてみよう！</p>';
+  if(!S.log.length)return '<p class="mu c">記録なし</p>';
   const days={},order=[];
   [...S.log].reverse().forEach(s=>{
     const k=new Date(s.ts).toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
@@ -681,9 +689,9 @@ function renderBookEstimate(){
   const result=stat=>stat.days===null?'<span class="be-unavailable">まだ推定できません</span>':`あと <b>${format(stat.days)}</b><span>日</span>`;
   $('#book-estimate-name').textContent=book.name;
   $('#book-estimate-primary').innerHTML=result(estimate.three);
-  $('#book-estimate-three').textContent=estimate.three.count?`3日間で${format(estimate.three.count)}問・1日平均${format(estimate.three.average)}問`:'直近3日間に学習の記録がありません';
+  $('#book-estimate-three').textContent=estimate.three.count?`3日間で${format(estimate.three.count)}問・1日平均${format(estimate.three.average)}問`:'直近3日の記録なし';
   $('#book-estimate-secondary').innerHTML=result(estimate.seven);
-  $('#book-estimate-seven').textContent=estimate.seven.count?`7日間で${format(estimate.seven.count)}問・1日平均${format(estimate.seven.average)}問`:'直近7日間に学習の記録がありません';
+  $('#book-estimate-seven').textContent=estimate.seven.count?`7日間で${format(estimate.seven.count)}問・1日平均${format(estimate.seven.average)}問`:'直近7日の記録なし';
   $('#book-estimate-progress').textContent=estimate.remaining?`残り${format(estimate.remaining)}問（記録済み${format(estimate.completed)} / ${format(estimate.total)}問）`:`全${format(estimate.total)}問を記録済みです 🎉`;
 }
 function openBookEstimate(){
@@ -723,7 +731,7 @@ function openAdd(){
 function closeAdd(){pClose($('#mdl'))}
 function renderHist(){
   const H=hist(),c=$('#hclr');
-  $('#hlist').innerHTML=H.length?H.map((x,i)=>`<button class="hi" data-h="${i}"><span class="hx">${calcDisplay(x.e)} =</span><span class="hv">${calcDisplay(x.r)}</span></button>`).join(''):'<p class="mu c" style="margin:18px 0">まだ計算履歴がありません。<br>「＝」を押した計算が、ここに残ります。</p>';
+  $('#hlist').innerHTML=H.length?H.map((x,i)=>`<button class="hi" data-h="${i}"><span class="hx">${calcDisplay(x.e)} =</span><span class="hv">${calcDisplay(x.r)}</span></button>`).join(''):'<p class="mu c" style="margin:18px 0">履歴なし</p>';
   c.hidden=!H.length;c.textContent=cArm?'もう一度押すと全削除':'🗑 履歴を消す';
   c.style.color=cArm?'var(--D)':'';c.style.borderColor=cArm?'var(--D)':'';
 }
@@ -737,7 +745,7 @@ function renderRcfg(){
   }).join('');
   $('#rweights').innerHTML=b.parts.map((c,i)=>{
     const n=i+1,on=!sel||sel.includes(n),value=partWeight(n);
-    return `<div class="rw"><label for="rw-${n}">第${n}部</label><input id="rw-${n}" data-weight="${n}" type="range" min="0" max="100" step="1" value="${value}" aria-describedby="rwp-${n}"${on?'':' disabled'}><output id="rwv-${n}" for="rw-${n}">${value}</output><div id="rwp-${n}" class="rwinfo"></div></div>`;
+    return `<div class="rw"><div class="rw-part"><label for="rw-${n}">第${n}部</label><button type="button" id="ro-${n}" class="rw-order" data-order="${n}" aria-label="第${n}部を先頭から" aria-pressed="${partFromStart(n)}">先頭から</button></div><input id="rw-${n}" data-weight="${n}" type="range" min="0" max="100" step="1" value="${value}" aria-describedby="rwp-${n}"${on?'':' disabled'}><output id="rwv-${n}" for="rw-${n}">${value}</output><div id="rwp-${n}" class="rwinfo"></div></div>`;
   }).join('');
   updateWeightSummary();
 }
@@ -754,11 +762,21 @@ function updateWeightSummary(){
     if(input){input.disabled=!x.on;input.style.setProperty('--rw-fill',x.value+'%');input.setAttribute('aria-valuetext','出やすさ '+x.value)}
     if(out)out.textContent=x.value;
     const percent=sum>0&&x.on?x.left*x.value/sum*100:0;
-    if(note)note.textContent=!x.on?'出題対象外':x.value===0?'出やすさ0：出題しません':!x.left?'未修の問題はありません':'残り '+x.left+'問 ・ 次の1問 '+percent.toFixed(1)+'%';
+    if(note)note.textContent=!x.on?'対象外':x.value===0?'出題なし':!x.left?'未修なし':'残り'+x.left+'問・次'+percent.toFixed(1)+'%';
   });
   const remaining=info.reduce((t,x)=>t+(x.on&&x.value>0?x.left:0),0);
-  $('#rsum').textContent='対象 '+(sel?sel.length:b.parts.length)+'部 / '+b.parts.length+'部 ・ 出題できる未修 '+remaining+'問';
-  $('#rreset').disabled=!sel&&b.parts.every((_,i)=>partWeight(i+1)===50);
+  $('#rsum').textContent='対象'+(sel?sel.length:b.parts.length)+'/'+b.parts.length+'部・未修'+remaining+'問';
+  $('#rreset').disabled=!sel&&b.parts.every((_,i)=>partWeight(i+1)===50&&!partFromStart(i+1));
+}
+function setPartOrder(n){
+  const b=curBook();if(!Number.isInteger(n)||n<1||n>b.parts.length)return;
+  const before=b.fromStart;b.fromStart=b.parts.map((_,i)=>partFromStart(i+1,b));b.fromStart[n-1]=!b.fromStart[n-1];
+  if(!b.fromStart.some(Boolean))delete b.fromStart;
+  if(!save()){
+    if(before===undefined)delete b.fromStart;else b.fromStart=before;
+    $('#rmsg').textContent='保存できませんでした';renderRcfg();return;
+  }
+  $('#rmsg').textContent='';renderRcfg();render();$('#ro-'+n)?.focus({preventScroll:true});
 }
 function setWeight(n,value){
   const b=curBook();
@@ -796,13 +814,14 @@ function togSq(n){
   m.textContent='';b.sel=nx.length===all.length?null:nx;
   save();renderRcfg();render();
 }
-function resetSel(){const b=curBook();b.sel=null;delete b.weights;$('#rmsg').textContent='';save();renderRcfg();render();toast('↺ 全部の部・出やすさ50に戻しました')}
+function resetSel(){const b=curBook();b.sel=null;delete b.weights;delete b.fromStart;$('#rmsg').textContent='';save();renderRcfg();render();toast('リセットしました')}
 $('#rdl').addEventListener('click',e=>{
   if(e.target.id==='rdl')return closeRcfg();
   const b=e.target.closest('button');if(!b)return;
   if(b.id==='rx'||b.id==='rok')closeRcfg();
   else if(b.id==='rreset')resetSel();
   else if(b.dataset.sq)togSq(+b.dataset.sq);
+  else if(b.dataset.order)setPartOrder(+b.dataset.order);
 });
 function openHist(){cArm=false;renderHist();pOpen($('#hdl'))}
 function closeHist(){cArm=false;pClose($('#hdl'))}
@@ -847,10 +866,10 @@ const offlineState={ready:false,phase:'checking',registration:null};
 let offlineBusy=false,offlineListeners=false,offlineTimer;
 const offlineWorkers=new WeakSet(),offlineRegistrations=new WeakSet();
 function offlineText(){
-  if(offlineState.ready)return navigator.onLine?'準備できています。次回から通信なしで開けます。':'オフラインで利用中です。記録はこの端末に保存します。';
-  if(offlineState.phase==='unsupported')return 'オフライン起動の準備には、HTTPSで公開したページを対応ブラウザで開いてください。';
-  if(!navigator.onLine)return '一度インターネットにつないで開くと、オフライン起動の準備ができます。';
-  return offlineState.phase==='checking'?'オフライン起動の準備を確認しています…':'準備できませんでした。通信がある状態で、下のボタンからやり直せます。';
+  if(offlineState.ready)return navigator.onLine?'オフライン対応':'オフライン';
+  if(offlineState.phase==='unsupported')return 'オフライン非対応';
+  if(!navigator.onLine)return 'オンラインで準備してください';
+  return offlineState.phase==='checking'?'確認中…':'準備できませんでした';
 }
 function updateOfflineStatus(){
   const text=$('#offline-status'),button=$('#offline-prepare');
@@ -921,7 +940,7 @@ function vSet(){
   return (limitNativeAvailable()?'<div class="card"><button id="launcher-settings" class="w" style="margin:0">学習用ランチャーの設定</button></div>':'')+`<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
   +setupForm('各部の問題数（'+esc(b.name)+'）')
   +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
-  +`<details class="card"><summary><span>💾 バックアップ（全教材まとめて）</span></summary><p class="mu">記録はこの端末のブラウザに保存されます。機種変更やデータ削除に備えて、コピーして保管しておくと安心です。</p><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><p class="mu">コードを更新する管理者用ページです（GitHubのトークンが必要です）。</p><button id="adm" class="w">管理ページを開く</button></div>`;
+  +`<details class="card"><summary><span>💾 バックアップ（全教材）</span></summary><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><button id="adm" class="w">管理ページを開く</button></div>`;
 }
 const OPS='+−×÷^',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.'],['xʸ','^','op','累乗（xのy乗）'],['×10ˣ','EE','op','10のべき乗を入力']];
 const hist=()=>{if(!S.calc||!Array.isArray(S.calc.hist))S.calc={hist:[]};return S.calc.hist};
@@ -1382,7 +1401,7 @@ $('#cdl').addEventListener('keydown',e=>{
 function vPlan(){
   const t=todayN();
   const L=plansList().map(p=>({p:p,day:planDay(p)})).sort((a,b)=>((a.day<t)-(b.day<t))||a.day-b.day);
-  let h='<div class="plan-tools"><button id="pcal" aria-haspopup="dialog" aria-controls="cdl">📅 カレンダー</button></div><p class="mu" style="margin:2px 2px 10px">日付を入れると、その日の<b>1週間前</b>まであと何日かを表示します。</p>';
+  let h='<div class="plan-tools"><button id="pcal" aria-haspopup="dialog" aria-controls="cdl">📅 カレンダー</button></div><p class="mu" style="margin:2px 2px 10px"><b>1週間前</b>までの日数</p>';
   h+=L.length?L.map(x=>{
     const wk=x.day-7,toWk=wk-t,toDay=x.day-t,old=toDay<0;
     let big,sub;
@@ -1393,7 +1412,7 @@ function vPlan(){
     else{big='<small>終了しました</small>';sub='当日から '+(-toDay)+'日が過ぎました'}
     const ar=delArm==='pl'+x.p.id;
     return `<div class="card pl${old?' old':''}"><div class="row"><b>${esc(x.p.name||'予定')}</b><button class="dl${ar?' arm':''}" data-pdel="${esc(x.p.id)}">${ar?'もう一度押すと削除':'🗑'}</button></div><div class="mu">${fmtN(x.day)}</div><div style="margin:10px 0 4px" class="mu">1週間前（${shortN(wk)}）まで</div><div class="pbig">${big}</div><div class="mu" style="margin-top:6px">${sub}</div></div>`;
-  }).join(''):'<p class="mu c" style="margin:18px 0">まだ予定がありません。下から追加してください。</p>';
+  }).join(''):'<p class="mu c" style="margin:18px 0">予定なし</p>';
   h+=`<details class="card pf"${L.length?'':' open'}><summary>＋ 予定を追加</summary><label style="margin-top:12px">名前（なくてもOK）</label><input id="pn" placeholder="例: 試験" maxlength="30" value="${esc(plN)}"><label style="margin-top:10px">日付（年・月・日）</label><input id="pd" type="date" value="${esc(plD)}"><button id="padd" class="pri w">追加</button><p class="mu c" id="pmsg" style="min-height:20px"></p></details>`;
   return h;
 }
@@ -1434,7 +1453,7 @@ const noteBody=b=>{const L=b.split('\n'),i=L.findIndex(x=>x.trim());return i<0?'
 const memoDate=ts=>{const d=new Date(ts),y=nowFn().getFullYear();return (d.getFullYear()===y?'':d.getFullYear()+'年')+(d.getMonth()+1)+'月'+d.getDate()+'日'};
 function vMemo(){
   const L=notesArr().slice().sort((a,b)=>b.ts-a.ts),fab='<button id="nnew" class="fab" aria-label="新しいメモ">＋</button>';
-  if(!L.length)return '<p class="mu c" style="margin:50px 0">まだメモがありません。<br>右下の「＋」で作れます。</p>'+fab;
+  if(!L.length)return '<p class="mu c" style="margin:50px 0">メモなし</p>'+fab;
   const cols=[[],[]],hs=[0,0];
   L.forEach(n=>{
     const t=noteTitle(n.body),b=noteBody(n.body),k=hs[0]<=hs[1]?0:1;
@@ -1525,9 +1544,9 @@ function vOne(){
   if(sId){
     const g=S.rated[sId],used=S.used.includes(sId),n=S.log.filter(x=>x.nums.includes(sId)).length,ar=delArm==='p'+sId;
     h+=`<div class="card"><div class="row"><b style="font-size:20px">${lab(sId)}</b><span class="mu">${inA?'ルーレット中':g?'現在の評価 '+g:'未修'}</span></div>`;
-    if(inA)h+='<p class="mu">この問題は今のルーレットに入っています。ルーレット画面で評価してください。</p>';
+    if(inA)h+='<p class="mu">ルーレットで評価</p>';
     else{
-      h+=`<div class="rt" style="margin:12px 0">${['A','B','C','D'].map(k=>`<button class="g g${k} ${sR===k?'on':''}" data-sg="${k}">${k}</button>`).join('')}</div><textarea id="scm" rows="3" placeholder="📝 反省コメント（任意）">${esc(sC)}</textarea><button class="big" id="srec">✅ 記録する</button><p class="mu c">評価を選び、反省を書いてから「記録する」を押してください。評価の付け直しもできます。</p>`;
+      h+=`<div class="rt" style="margin:12px 0">${['A','B','C','D'].map(k=>`<button class="g g${k} ${sR===k?'on':''}" data-sg="${k}">${k}</button>`).join('')}</div><textarea id="scm" rows="3" placeholder="📝 反省コメント（任意）">${esc(sC)}</textarea><button class="big" id="srec">✅ 記録する</button>`;
       if(used)h+=`<button class="ghost w" data-sd="1"${ar?' style="color:var(--D);border-color:var(--D)"':''}>${ar?'もう一度押すと削除（未修に戻ります）':'🗑 この問題の記録をすべて消して未修に戻す（'+n+'件）'}</button>`;
     }
     h+='</div>';
@@ -1564,7 +1583,7 @@ function recOne(id,g){
     sMsg='端末に記録を保存できませんでした。空き容量を確認してください。時間はまだ追加していません。';rdOne();return;
   }
   limitSettleRecord(record,curBook(),true);limitSyncWarning();
-  sMsg=lab(id)+' を '+g+' で記録しました（記録ページに追加）';sC='';sR='';sId=0;sIn=['',''];rdOne();
+  sMsg=lab(id)+'：'+g+'で記録';sC='';sR='';sId=0;sIn=['',''];rdOne();
 }
 function delOne(id){
   S.log.forEach(x=>{if(x.nums.includes(id)){x.nums=x.nums.filter(n=>n!==id);delete x.r[id]}});
@@ -1647,6 +1666,7 @@ $('#app').addEventListener('click',e=>{
     if(sp.err)return say('#smsg',sp.err);
     const P=sp.parts,cb=curBook();
     S.parts=P;if(sp.st)cb.st=sp.st;else delete cb.st;
+    if(Array.isArray(cb.fromStart))cb.fromStart=P.map((_,i)=>cb.fromStart[i]===true);
     save();render();
     const m=$('#smsg');if(m){m.textContent='✅ 保存しました（'+P.length+'部・計'+P.reduce((x,y)=>x+y,0)+'問'+(sp.st?'・通し番号':'')+'）';m.style.color='var(--A)'}
     toast('✅ 保存しました');
@@ -1808,10 +1828,10 @@ prepareOffline();
     const all = orderedNotes();
     const words = match(query).trim().split(/\s+/).filter(Boolean);
     const list = all.filter(n => words.every(w => match(n.body).includes(w)));
-    const tools = `<div class="memo-tools"><input id="memo-search" type="search" aria-label="メモを検索" placeholder="🔍 メモを検索" value="${esc(query)}"><p class="mu memo-count">${words.length ? list.length+' / '+all.length : all.length}件${all.some(n=>n.pin)?' ・ ピン留めを先に表示':''}</p>${list.length?'<p class="mu memo-help">長押しで並べ替え・ゴミ箱へ移動</p>':''}</div>`;
+    const tools = `<div class="memo-tools"><input id="memo-search" type="search" aria-label="メモを検索" placeholder="🔍 メモを検索" value="${esc(query)}"><p class="mu memo-count">${words.length ? list.length+' / '+all.length : all.length}件</p>${list.length?'<p class="mu memo-help">長押しで並べ替え・ゴミ箱へ移動</p>':''}</div>`;
     const fab = '<button id="nnew" class="fab" aria-label="新しいメモ">＋</button>';
     if (!list.length) return tools + '<p class="mu c" style="margin:40px 0">' +
-      (all.length ? '一致するメモがありません。' : 'まだメモがありません。<br>右下の「＋」で作れます。') + '</p>' + fab;
+      (all.length ? '一致するメモがありません。' : 'メモなし') + '</p>' + fab;
     const cards = list.map(n => {
       const title = noteTitle(n.body), body = noteBody(n.body);
       return `<button class="nc" data-nid="${esc(n.id)}" data-pin="${n.pin?'1':'0'}" draggable="false">${n.pin?'<div class="memo-pin">📌 ピン留め</div>':''}<div class="nt1">${esc(title)}</div><div class="nb${body?'':' mu'}">${body?esc(body):'テキストなし'}</div><div class="nd">${memoDate(n.ts)}</div></button>`;
@@ -2102,7 +2122,7 @@ prepareOffline();
     originalFlushNote();
     noteSaved = checkSaved();
     if (!noteSaved) {
-      status('保存できませんでした。本文をコピーしてから、もう一度保存してください。',true);
+      status('保存できません。本文をコピーしてください。',true);
       return;
     }
     const now = nowFn();
@@ -2114,7 +2134,7 @@ prepareOffline();
     originalOpenNote(id);
     noteSaved = true;
     pinState();
-    status(curN.body.trim() ? '保存済み ・ 入力すると自動保存します' : '1行目がタイトルになります ・ 入力すると自動保存します');
+    status(curN.body.trim() ? '保存済み' : '1行目：タイトル');
   };
   const originalCloseNote = closeNote;
   closeNote = function (fp) {
