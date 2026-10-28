@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -380,10 +380,41 @@ function mkS(src){
   return o;
 }
 let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false,nowFn=()=>new Date(),plN='',plD='',greetD='',gt;
-const saveUI=()=>{try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab,g:greetD}))}catch(e){}};
+const saveUI=()=>{if(window.__studyLauncherMemo)return;try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab,g:greetD}))}catch(e){}};
 try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;greetD=typeof u.g==='string'?u.g:'';if(['roulette','rev','calc','class','log','plan','memo','limits','set'].includes(u.tab))tab=u.tab}catch(e){}
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(S));return true}catch(e){return false}};
+let memoBaseText=JSON.stringify(S.notes||[]);
+function mergeMemoNotes(base,local,remote){
+  const valid=list=>(Array.isArray(list)?list:[]).filter(n=>n&&typeof n.id==='string'&&typeof n.body==='string');
+  const before=new Map(valid(base).map(n=>[n.id,n])),mine=new Map(valid(local).map(n=>[n.id,n]));
+  const incoming=new Map(valid(remote).map(n=>[n.id,n])),renamed=[];
+  for(const [id,n] of before)if(!mine.has(id)){
+    const other=incoming.get(id);
+    if(other&&other.body!==n.body){const copy={...other,id:uid()};incoming.delete(id);incoming.set(copy.id,copy)}
+    else incoming.delete(id);
+  }
+  for(const [id,n] of mine){
+    const previous=before.get(id),other=incoming.get(id);
+    if(previous&&JSON.stringify(previous)===JSON.stringify(n))continue;
+    if(previous&&other&&n.body!==previous.body&&other.body!==previous.body&&n.body!==other.body){
+      const copy={...n,id:uid()};incoming.set(copy.id,copy);renamed.push({from:id,to:copy.id});
+    }else incoming.set(id,n);
+  }
+  return {notes:Array.from(incoming.values()),renamed};
+}
+const save=()=>{
+  const local=S.notes;let output=S;
+  try{
+    const raw=localStorage.getItem(K),latest=raw?JSON.parse(raw):null;
+    if(window.__studyLauncherMemo&&latest&&(!Array.isArray(latest.books)&&!Array.isArray(latest.parts)))return false;
+    const base=JSON.parse(memoBaseText),merged=mergeMemoNotes(base,local,latest?latest.notes:[]);
+    if(window.__studyLauncherMemo&&latest)output=mkS(latest);
+    output.notes=merged.notes;localStorage.setItem(K,JSON.stringify(output));S=output;memoBaseText=JSON.stringify(S.notes);
+    try{if(typeof window.__studyMemoAfterSave==='function')window.__studyMemoAfterSave(base,merged.renamed)}catch(_){}
+    return true;
+  }catch(e){if(output===S)S.notes=local;return false}
+};
+if(window.__studyLauncherMemo)tab='memo';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const selA=()=>{const b=curBook(),n=b.parts.length;const s=Array.isArray(b.sel)?[...new Set(b.sel)].filter(x=>Number.isInteger(x)&&x>=1&&x<=n).sort((x,y)=>x-y):null;return s&&s.length&&s.length<n?s:null};
@@ -637,7 +668,7 @@ function limitSettleRecord(record,book=curBook(),notify=false){
   }catch(_){/* A saved record remains pending; startup retries the native transaction. */}
 }
 function limitInitialise(){
-  if(!limitNativeAvailable())return;
+  if(window.__studyLauncherMemo||!limitNativeAvailable())return;
   limitRead();
   for(const b of S.books){limitBeginSession(b.act,b);for(const r of b.log)if(r.limId&&!r.limSettled)limitSettleRecord(r,b)}
   limitSyncWarning();
@@ -1419,6 +1450,7 @@ function vPlan(){
 const todayStr=()=>{const t=nowFn();return t.getFullYear()+'-'+pad2(t.getMonth()+1)+'-'+pad2(t.getDate())};
 function closeGreet(){clearTimeout(gt);pClose($('#gdl'))}
 function maybeGreet(){
+  if(window.__studyLauncherMemo)return;
   const d=todayStr();if(greetD===d)return;
   const t=todayN(),L=plansList().map(p=>({p:p,day:planDay(p)})).filter(x=>x.day-t>=0).sort((a,b)=>a.day-b.day);
   if(!L.length)return;
@@ -1470,7 +1502,9 @@ function flushNote(){
   save();
 }
 function openNote(id){
+  if(!curN&&typeof window.__studySyncMemo==='function')window.__studySyncMemo();
   notesArr();
+  if(id&&!S.notes.some(n=>n.id===id)){render();return;}
   curN=id?S.notes.find(n=>n.id===id)||null:null;
   const fresh=!curN;
   if(fresh)curN={id:uid(),body:'',ts:nowFn().getTime()};
@@ -1733,6 +1767,8 @@ document.addEventListener('mouseup',dEnd);
 document.addEventListener('touchcancel',dCancel);
 const TABS=['roulette','calc','log','other'];
 function go(t,dir){
+  if(window.__studyLauncherMemo&&t!=='memo')return;
+  if(t==='memo'&&typeof window.__studySyncMemo==='function')window.__studySyncMemo();
   if(t==='limits'&&limitNativeAvailable()){limitSyncWarning();limitCall('previewRestrictionHome');return}
   const o=Math.max(0,TABS.includes(tab)?TABS.indexOf(tab):3),n=TABS.includes(t)?TABS.indexOf(t):3;
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
@@ -2125,6 +2161,7 @@ prepareOffline();
       status('保存できません。本文をコピーしてください。',true);
       return;
     }
+    if(!curN)return;
     const now = nowFn();
     $('#nd').textContent = memoDate(curN.ts)+' 更新';
     status($('#nt').value.trim() ? '保存済み '+pad2(now.getHours())+':'+pad2(now.getMinutes()) : '空のメモは保存されません');
@@ -2275,5 +2312,66 @@ prepareOffline();
 })();
 
 </script>
+<script data-study-code>
+/* The launcher page and the study screen use the same note IDs and storage. */
+(() => {
+  function bindEditor(base,renamed=[]){
+    if(!curN)return;
+    const field=$('#nt');if(field.value!==curN.body)return;
+    const change=renamed.find(x=>x.from===curN.id),id=change?change.to:curN.id;
+    const note=notesArr().find(n=>n.id===id);
+    if(note){
+      curN=note;if(field.value!==note.body)field.value=note.body;
+      $('#nd').textContent=memoDate(note.ts)+' 更新';
+      const pin=$('#npin');if(pin){pin.textContent=note.pin?'📌 固定中':'📌 固定';pin.setAttribute('aria-pressed',String(!!note.pin));pin.setAttribute('aria-label',note.pin?'ピン留めを解除':'メモをピン留め');}
+    }else if(base.some(n=>n.id===id)){
+      clearTimeout(nT);curN=null;$('#ndl').hidden=true;document.body.style.overflow='';nArm=false;
+      popOv();render();
+    }
+  }
+  window.__studyMemoAfterSave=bindEditor;
+  window.__studySyncMemo=function(){
+    if(JSON.stringify(S.notes||[])!==memoBaseText)return;
+    if(curN&&$('#nt').value!==curN.body)return;
+    try{
+      const raw=localStorage.getItem(K);if(!raw)return;const latest=JSON.parse(raw);
+      if(!latest||!Array.isArray(latest.notes))return;
+      const base=JSON.parse(memoBaseText),notes=latest.notes,changed=JSON.stringify(notes)!==memoBaseText;
+      if(window.__studyLauncherMemo)S=mkS(latest);else S.notes=notes;
+      memoBaseText=JSON.stringify(S.notes);bindEditor(base);
+      if(tab==='memo'&&changed){
+        const input=document.activeElement,search=input?.id==='memo-search',start=search?input.selectionStart:null,end=search?input.selectionEnd:null;
+        render();if(search){const next=$('#memo-search');next.focus({preventScroll:true});if(start!==null)next.setSelectionRange(start,end);}
+      }
+    }catch(_){}
+  };
+  window.addEventListener('storage',e=>{if(e.key===K)window.__studySyncMemo()});
+  window.addEventListener('study-native-resume',window.__studySyncMemo);
+  window.addEventListener('focus',window.__studySyncMemo);
+  if(!window.__studyLauncherMemo)return;
+  const css=document.createElement('style');css.textContent=`
+    #quick-nav,#drw,#nav #mn{display:none!important}
+    main{padding-bottom:80px!important}
+    .fab{bottom:20px!important}
+    #memo-trash{bottom:18px!important}
+  `;document.head.appendChild(css);
+  let swipeState;
+  function gesture(){
+    const editing=/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'');
+    const enabled=!curN&&!editing&&!document.body.classList.contains('memo-dragging');
+    if(enabled===swipeState)return;swipeState=enabled;
+    try{AndroidApp.launcherMemoCanSwipe(enabled)}catch(_){}
+  }
+  new MutationObserver(gesture).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['hidden','class']});
+  document.addEventListener('focusin',gesture);document.addEventListener('focusout',()=>setTimeout(gesture,0));
+  window.__studyLauncherMemoEnter=function(){window.__studySyncMemo();if(tab!=='memo')go('memo');gesture()};
+  window.__studyLauncherMemoLeave=function(){
+    flushNote();document.activeElement?.blur();window.dispatchEvent(new Event('blur'));
+    if(!curN)window.__studyNativeTouched=false;
+  };
+  window.__studyLauncherMemoEnter();
+})();
+</script>
+
 </body>
 </html>
