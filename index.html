@@ -202,6 +202,8 @@ details.pf>summary{cursor:pointer;font-weight:700}
 .rw-part{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .rw-order{margin:0;padding:5px 8px;min-height:40px;font-size:12px;white-space:nowrap;color:var(--mu);background:transparent;border:1px solid var(--bd);border-radius:9px}
 .rw-order[aria-pressed="true"]{background:var(--pri);border-color:var(--pri);color:var(--pt)}
+#rshuffle{width:100%;min-height:44px;margin:2px 0 0}
+#rshuffle[aria-pressed="true"]{background:var(--pri);border-color:var(--pri);color:var(--pt)}
 .rw output{text-align:right;color:var(--pri);font-weight:800;font-variant-numeric:tabular-nums}
 .rw input[type="range"]{display:block;min-width:0;width:100%;height:36px;margin:0;padding:0;border:0;background:transparent;accent-color:var(--pri);-webkit-appearance:none;appearance:none;cursor:pointer}
 .rw input[type="range"]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(to right,var(--pri) 0%,var(--pri) var(--rw-fill,50%),var(--bd) var(--rw-fill,50%),var(--bd) 100%)}
@@ -333,6 +335,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <div class="mh"><b id="rt">ルーレット設定</b><button id="rx" class="ghost" aria-label="閉じる">✕</button></div>
     <p class="mu" style="margin:0" id="rbk"></p>
     <div class="sq" id="rsq"></div>
+    <button type="button" id="rshuffle" aria-pressed="false">表示順をランダム</button>
     <details class="rwdetail">
       <summary>部ごとの出やすさ</summary>
       <div id="rweights"></div>
@@ -429,6 +432,7 @@ function partWeight(part,b=curBook()){
   return typeof value==='number'&&Number.isFinite(value)?Math.max(0,Math.min(100,Math.round(value))):50;
 }
 const partFromStart=(part,b=curBook())=>Array.isArray(b.fromStart)&&b.fromStart[part-1]===true;
+const randomProblemOrder=(b=curBook())=>b.randomOrder===true;
 const drawPool=()=>pool().filter(id=>partWeight(Math.floor(id/1000))>0);
 function pickProblems(source,review){
   const remaining=source.slice(),picked=[];
@@ -450,7 +454,11 @@ function pickProblems(source,review){
     }
     picked.push(remaining.splice(index,1)[0]);
   }
-  return picked.sort((a,b)=>a-b);
+  if(!randomProblemOrder())return picked.sort((a,b)=>a-b);
+  for(let i=picked.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));[picked[i],picked[j]]=[picked[j],picked[i]];
+  }
+  return picked;
 }
 const total=()=>S.parts.reduce((t,c)=>t+c,0);
 const stA=()=>{const b=curBook();return Array.isArray(b.st)&&b.st.length===b.parts.length&&b.st.every(x=>Number.isInteger(x)&&x>=1)?b.st:null};
@@ -772,6 +780,7 @@ function renderHist(){
 function renderRcfg(){
   const b=curBook(),sel=selA(),u=new Set(S.used);
   $('#rbk').textContent='📘 '+b.name;
+  $('#rshuffle').setAttribute('aria-pressed',String(randomProblemOrder(b)));
   $('#rsq').innerHTML=b.parts.map((c,i)=>{
     let left=0;for(let q=1;q<=c;q++)if(!u.has((i+1)*1000+q))left++;
     const on=!sel||sel.includes(i+1);
@@ -800,7 +809,16 @@ function updateWeightSummary(){
   });
   const remaining=info.reduce((t,x)=>t+(x.on&&x.value>0?x.left:0),0);
   $('#rsum').textContent='対象'+(sel?sel.length:b.parts.length)+'/'+b.parts.length+'部・未修'+remaining+'問';
-  $('#rreset').disabled=!sel&&b.parts.every((_,i)=>partWeight(i+1)===50&&!partFromStart(i+1));
+  $('#rreset').disabled=!sel&&!randomProblemOrder(b)&&b.parts.every((_,i)=>partWeight(i+1)===50&&!partFromStart(i+1));
+}
+function setRandomProblemOrder(){
+  const b=curBook(),before=b.randomOrder;
+  if(randomProblemOrder(b))delete b.randomOrder;else b.randomOrder=true;
+  if(!save()){
+    if(before===undefined)delete b.randomOrder;else b.randomOrder=before;
+    $('#rmsg').textContent='保存できませんでした';renderRcfg();return;
+  }
+  $('#rmsg').textContent='';renderRcfg();$('#rshuffle').focus({preventScroll:true});
 }
 function setPartOrder(n){
   const b=curBook();if(!Number.isInteger(n)||n<1||n>b.parts.length)return;
@@ -848,12 +866,21 @@ function togSq(n){
   m.textContent='';b.sel=nx.length===all.length?null:nx;
   save();renderRcfg();render();
 }
-function resetSel(){const b=curBook();b.sel=null;delete b.weights;delete b.fromStart;$('#rmsg').textContent='';save();renderRcfg();render();toast('リセットしました')}
+function resetSel(){
+  const b=curBook(),before={sel:b.sel,weights:b.weights,fromStart:b.fromStart,randomOrder:b.randomOrder};
+  b.sel=null;delete b.weights;delete b.fromStart;delete b.randomOrder;
+  if(!save()){
+    for(const key of Object.keys(before)){if(before[key]===undefined)delete b[key];else b[key]=before[key];}
+    $('#rmsg').textContent='保存できませんでした';renderRcfg();return;
+  }
+  $('#rmsg').textContent='';renderRcfg();render();toast('リセットしました');
+}
 $('#rdl').addEventListener('click',e=>{
   if(e.target.id==='rdl')return closeRcfg();
   const b=e.target.closest('button');if(!b)return;
   if(b.id==='rx'||b.id==='rok')closeRcfg();
   else if(b.id==='rreset')resetSel();
+  else if(b.id==='rshuffle')setRandomProblemOrder();
   else if(b.dataset.sq)togSq(+b.dataset.sq);
   else if(b.dataset.order)setPartOrder(+b.dataset.order);
 });
