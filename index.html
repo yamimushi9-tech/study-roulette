@@ -2370,7 +2370,8 @@ prepareOffline();
       curN=note;setNoteDraft(note);
       $('#nd').textContent=memoDate(note.ts)+' 更新';
       const pin=$('#npin');if(pin){pin.textContent=note.pin?'📌 固定中':'📌 固定';pin.setAttribute('aria-pressed',String(!!note.pin));pin.setAttribute('aria-label',note.pin?'ピン留めを解除':'メモをピン留め');}
-    }else if(base.some(n=>n.id===id)){
+    // 自分で空にした下書きは一覧から外れても、閉じるまで編集を続ける。
+    }else if(curN.body.trim()&&base.some(n=>n.id===id)){
       clearTimeout(nT);curN=null;$('#ndl').hidden=true;document.body.style.overflow='';nArm=false;
       popOv();render();
     }
