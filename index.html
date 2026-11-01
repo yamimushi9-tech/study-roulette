@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -237,6 +237,35 @@ details.pf>summary{cursor:pointer;font-weight:700}
 
 /* HTML更新後の初回通知 */
 #study-update-notice{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%);z-index:1000;max-width:calc(100% - 28px);padding:10px 18px;border-radius:999px;background:var(--pri);color:var(--pt);box-shadow:0 4px 16px #0003;font:700 14px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;text-align:center;pointer-events:none}
+#nav #ttl{font-size:20px;font-weight:800;border:0;background:transparent;color:var(--tx);padding:0;min-height:44px;margin:-7px 0;text-align:left}
+#nav #ttl:disabled{opacity:1;cursor:default}
+#wheel-page{position:fixed;inset:0;z-index:170;background:var(--bg);overflow-y:auto;overscroll-behavior:contain;padding:env(safe-area-inset-top,0px) 18px calc(24px + env(safe-area-inset-bottom,0px))}
+#wheel-page[hidden],#wheel-config[hidden]{display:none}
+.wheel-inner{width:100%;max-width:460px;margin:0 auto}
+.wheel-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:62px}
+.wheel-top b{font-size:20px}.wheel-top button{width:46px;height:46px;padding:0;border:0;font-size:26px}
+#wheel-book{color:var(--mu);text-align:center;margin:6px 0 18px;overflow-wrap:anywhere;font-size:15px}
+.wheel-stage{position:relative;width:100%;max-width:420px;aspect-ratio:1;margin:0 auto 22px;isolation:isolate}
+#wheel-canvas{display:block;width:100%;height:100%}
+.wheel-pointer{position:absolute;z-index:2;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:28px solid var(--pri);filter:drop-shadow(0 2px 2px var(--bg));pointer-events:none}
+.wheel-hub{position:absolute;inset:28%;border-radius:50%;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25;pointer-events:none}
+#wheel-part{font-size:clamp(14px,4vw,20px);color:var(--mu);font-weight:700;white-space:nowrap}
+#wheel-number{font-size:clamp(24px,7.2vw,40px);font-weight:800;margin-top:8px;white-space:nowrap}
+.wheel-selection{display:flex;align-items:center;gap:12px;min-height:70px;padding:12px;background:var(--card);border:1px solid var(--bd);border-radius:16px}
+#wheel-count{font-size:21px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#wheel-picked{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.wheel-chip{padding:7px 9px;font-size:13px;border-radius:999px;min-height:36px}.wheel-chip span{color:var(--mu);margin-left:3px}
+#wheel-toggle{touch-action:manipulation;user-select:none;-webkit-user-select:none;margin-top:16px}
+#wheel-error,#wheel-config-error{color:var(--D);min-height:20px;font-size:13px;text-align:center;margin:8px 0}
+#wheel-config{position:fixed;inset:0;z-index:1;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:20px}
+.wheel-config-box{width:100%;max-width:360px;background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:18px}
+.wheel-config-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.wheel-config-head button{padding:0;width:44px;height:44px;font-size:24px}
+.wheel-orders{display:flex;gap:8px;margin-bottom:26px}.wheel-orders button{flex:1}
+.wheel-speed-ends{display:flex;justify-content:space-between;color:var(--mu);font-size:13px;margin-top:6px}
+#wheel-speed{accent-color:var(--pri);padding:0;min-height:44px;touch-action:pan-x}
+@media(max-height:650px){.wheel-stage{max-width:300px;margin-bottom:12px}#wheel-book{margin-bottom:12px}.wheel-selection{min-height:60px}.wheel-top{min-height:54px}}
+
 </style>
 <style data-study-code>
 .limit-small{font-size:12px}.limit-session-hint{border:1px solid var(--bd);border-radius:14px;padding:12px;margin:12px 0;background:var(--card);display:flex;flex-direction:column;gap:5px}.limit-session-hint b{font-size:14px;color:var(--pri)}.limit-session-hint span{font-size:12px;color:var(--mu)}
@@ -246,7 +275,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
 </style>
 </head>
 <body>
-<nav id="nav"><button id="mn" aria-label="メニュー">☰</button><b id="ttl"></b></nav>
+<nav id="nav"><button id="mn" aria-label="メニュー">☰</button><button type="button" id="ttl" aria-label="円のルーレットを開く"></button></nav>
 <main id="app"></main>
 <div id="toast"></div>
 <div id="drw" hidden>
@@ -346,6 +375,32 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <button id="rok" class="pri w">閉じる</button>
   </div>
 </div>
+<section id="wheel-page" hidden role="dialog" aria-modal="true" aria-label="円のルーレット">
+  <div class="wheel-inner">
+    <header class="wheel-top"><button type="button" id="wheel-back" class="ghost" aria-label="戻る">‹</button><b>ルーレット</b><button type="button" id="wheel-settings" class="ghost" aria-label="設定">⚙</button></header>
+    <p id="wheel-book"></p>
+    <div id="wheel-stage" class="wheel-stage">
+      <canvas id="wheel-canvas" aria-hidden="true"></canvas>
+      <span class="wheel-pointer" aria-hidden="true"></span>
+      <div class="wheel-hub"><span id="wheel-part"></span><strong id="wheel-number"></strong></div>
+    </div>
+    <div class="wheel-selection"><b id="wheel-count"></b><div id="wheel-picked" aria-live="polite"></div></div>
+    <button type="button" id="wheel-toggle" class="big">回す</button>
+    <p id="wheel-error" role="status"></p>
+  </div>
+  <div id="wheel-config" hidden>
+    <div class="wheel-config-box" role="dialog" aria-modal="true" aria-labelledby="wheel-config-title">
+      <div class="wheel-config-head"><b id="wheel-config-title">設定</b><button type="button" id="wheel-config-close" class="ghost" aria-label="閉じる">×</button></div>
+      <label>並び</label>
+      <div class="wheel-orders"><button type="button" id="wheel-parts" aria-pressed="true">部順</button><button type="button" id="wheel-random" aria-pressed="false">ランダム</button></div>
+      <label for="wheel-speed">速度</label>
+      <input type="range" id="wheel-speed" min="0" max="100" step="1" value="50">
+      <div class="wheel-speed-ends"><span>遅い</span><span>速い</span></div>
+      <p id="wheel-config-error" role="status"></p>
+    </div>
+  </div>
+</section>
+
 <script data-study-code>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -1606,16 +1661,216 @@ $('#ndl').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.id==='nb')closeNote();else if(b.id==='ndel')delNote();
 });
+/* Circular roulette: the displayed pointer chooses the problem, never a draw after STOP. */
+let wheelState=null,wheelFrame=0,wheelResize=null;
+const WHEEL_TAU=Math.PI*2;
+function wheelPrefs(book){
+  const p=book.wheelPrefs||{};
+  return {order:p.order==='random'?'random':'parts',speed:Number.isFinite(p.speed)?Math.max(0,Math.min(100,p.speed)):50};
+}
+function wheelAll(book){
+  const used=new Set(book.used),ids=[];
+  book.parts.forEach((count,i)=>{for(let q=1;q<=Math.min(999,Number(count)||0);q++){const id=(i+1)*1000+q;if(!used.has(id))ids.push(id)}});
+  return ids;
+}
+function wheelShuffle(ids){
+  const a=ids.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+  return a;
+}
+function wheelIndex(angle,count){if(!count)return -1;const turn=((-angle%WHEEL_TAU)+WHEEL_TAU)%WHEEL_TAU;return Math.min(count-1,Math.floor(turn/WHEEL_TAU*count))}
+function wheelRate(speed){return .25*Math.pow(800,Math.max(0,Math.min(100,speed))/100)}
+function wheelBook(){return wheelState&&S.books.find(b=>b.id===wheelState.bookId&&S.cur===b.id)}
+function wheelRemaining(s=wheelState){const picked=new Set(s.picked);return s.order.filter(n=>!picked.has(n))}
+function wheelDraft(book){
+  const s=wheelState,before=book.wheelDraft;
+  book.wheelDraft={v:1,order:s.order.slice(),picked:s.picked.slice(),angle:s.angle};
+  if(save())return true;
+  if(before===undefined)delete book.wheelDraft;else book.wheelDraft=before;
+  return false;
+}
+function wheelOpen(){
+  if(tab!=='roulette'||spinning||wheelState||window.__studyLauncherMemo)return;
+  const book=curBook(),all=wheelAll(book),valid=new Set(all),prefs=wheelPrefs(book),draft=book.wheelDraft;
+  let order=draft&&draft.v===1&&Array.isArray(draft.order)?[...new Set(draft.order)].filter(n=>valid.has(n)):[];
+  if(order.length){const seen=new Set(order);order.push(...all.filter(n=>!seen.has(n)))}
+  else order=prefs.order==='random'?wheelShuffle(all):all;
+  if(prefs.order==='parts')order.sort((a,b)=>a-b);
+  const picked=draft&&draft.v===1&&Array.isArray(draft.picked)?[...new Set(draft.picked)].filter(n=>valid.has(n)).slice(0,5):[];
+  const angle=Number.isFinite(draft?.angle)?draft.angle%WHEEL_TAU:0;
+  wheelState={bookId:book.id,order,picked,target:Math.min(5,all.length),angle,prefs,face:[],shown:null,running:false,last:0,cache:null,replace:false,overflow:document.body.style.overflow,background:[]};
+  wheelState.face=wheelRemaining();
+  const page=$('#wheel-page');page.hidden=false;document.body.style.overflow='hidden';
+  for(const id of ['nav','app','quick-nav']){const e=document.getElementById(id);if(e){wheelState.background.push([e,e.hasAttribute('inert')]);e.setAttribute('inert','')}}
+  $('#wheel-book').textContent=book.name;$('#wheel-error').textContent='';
+  pushOv();wheelUpdate();wheelDraw();
+  if(typeof ResizeObserver==='function'){wheelResize=new ResizeObserver(()=>{if(wheelState){wheelState.cache=null;wheelDraw()}});wheelResize.observe($('#wheel-stage'))}
+  $('#wheel-toggle').focus({preventScroll:true});
+}
+function wheelPause(){
+  cancelAnimationFrame(wheelFrame);wheelFrame=0;
+  if(wheelState){wheelState.running=false;wheelUpdate()}
+}
+function wheelClose(fromBack=false,completed=false){
+  if(!wheelState)return;
+  if(!$('#wheel-config').hidden)wheelCloseConfig(fromBack);
+  wheelPause();if(wheelResize){wheelResize.disconnect();wheelResize=null}
+  const s=wheelState;wheelState=null;$('#wheel-page').hidden=true;
+  document.body.style.overflow=s.overflow;
+  s.background.forEach(([e,was])=>{if(!was)e.removeAttribute('inert')});
+  if(!fromBack)popOv(true);
+  if(!completed)$('#ttl').focus({preventScroll:true});
+}
+function wheelUpdate(){
+  const s=wheelState;if(!s)return;
+  const button=$('#wheel-toggle'),done=s.target>0&&s.picked.length>=s.target;
+  button.disabled=!s.target;
+  button.textContent=!s.target?'未修なし':done?(s.replace?'入れ替える':'評価へ'):s.running?'止める':'回す';
+  $('#wheel-count').textContent=s.picked.length+' / '+s.target;
+  $('#wheel-picked').innerHTML=s.picked.map(n=>'<button type="button" class="wheel-chip" data-wheel-remove="'+n+'" aria-label="'+esc(lab(n))+'を戻す">'+esc(sh(n))+' <span aria-hidden="true">×</span></button>').join('');
+}
+function wheelCache(size,ratio){
+  const s=wheelState,n=s.face.length,canvas=document.createElement('canvas');canvas.width=canvas.height=Math.round(size*ratio);
+  const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);const c=size/2,r=Math.max(1,c-9),inner=r*.49,step=WHEEL_TAU/(n||1);
+  const theme=getComputedStyle(document.documentElement),border=theme.getPropertyValue('--bd').trim(),ink='#10131a';
+  s.colors={bg:theme.getPropertyValue('--bg').trim(),border,accent:theme.getPropertyValue('--pri').trim()};
+  ctx.translate(c,c);ctx.lineWidth=Math.min(1,step*r*.35);ctx.strokeStyle=s.colors.bg;
+  for(let i=0;i<n;i++){
+    const start=-Math.PI/2+i*step,part=Math.floor(s.face[i]/1000);
+    ctx.beginPath();ctx.arc(0,0,r,start,start+step);ctx.arc(0,0,inner,start+step,start,true);ctx.closePath();
+    ctx.fillStyle='hsl('+(225+(part%6)*8)+' 76% '+(65+(part%3)*5)+'%)';ctx.fill();if(n<800)ctx.stroke();
+    if(step*r*.76>=13){
+      ctx.save();ctx.rotate(start+step/2);ctx.translate(r*.77,0);ctx.rotate(Math.PI/2);
+      ctx.fillStyle=ink;ctx.font='600 '+Math.max(8,Math.min(12,step*r*.6))+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(sh(s.face[i]),0,0);ctx.restore();
+    }
+  }
+  ctx.beginPath();ctx.arc(0,0,r+3,0,WHEEL_TAU);ctx.strokeStyle=border;ctx.lineWidth=5;ctx.stroke();
+  s.cache={canvas,size,ratio};return s.cache;
+}
+function wheelDraw(){
+  const s=wheelState;if(!s)return;
+  const canvas=$('#wheel-canvas'),size=Math.max(1,$('#wheel-stage').getBoundingClientRect().width),ratio=Math.min(window.devicePixelRatio||1,3);
+  if(!s.cache||s.cache.size!==size||s.cache.ratio!==ratio)wheelCache(size,ratio);
+  const pixels=Math.round(size*ratio);if(canvas.width!==pixels||canvas.height!==pixels){canvas.width=canvas.height=pixels}
+  const ctx=canvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,size,size);
+  ctx.save();ctx.translate(size/2,size/2);ctx.rotate(s.angle);ctx.drawImage(s.cache.canvas,-size/2,-size/2,size,size);ctx.restore();
+  const index=wheelIndex(s.angle,s.face.length),id=index<0?null:s.face[index];s.shown=id;
+  $('#wheel-part').textContent=id?'第'+Math.floor(id/1000)+'部':'';
+  $('#wheel-number').textContent=id?num(id)+(stA()?'番':'問目'):'未修なし';
+  canvas.setAttribute('aria-label',id?lab(id):'未修なし');
+}
+function wheelAnimate(now){
+  const s=wheelState;if(!s||!s.running)return;
+  const dt=Math.max(0,Math.min(80,now-s.last));s.last=now;
+  const speed=Math.min(3,wheelRate(s.prefs.speed)/(s.face.length||1))*WHEEL_TAU;
+  s.angle=(s.angle+speed*dt/1000)%WHEEL_TAU;wheelDraw();wheelFrame=requestAnimationFrame(wheelAnimate);
+}
+function wheelStart(){
+  const s=wheelState,book=wheelBook();if(!s||!book)return wheelClose();
+  const all=wheelAll(book),valid=new Set(all);s.order=s.order.filter(n=>valid.has(n));
+  const old=new Set(s.order);s.order.push(...all.filter(n=>!old.has(n)));s.picked=s.picked.filter(n=>valid.has(n));
+  s.target=Math.min(5,all.length);s.face=wheelRemaining();s.cache=null;s.replace=false;
+  if(!s.face.length){wheelUpdate();if(s.picked.length)wheelFinish();return}
+  $('#wheel-error').textContent='';s.running=true;s.last=performance.now();wheelDraw();wheelUpdate();wheelFrame=requestAnimationFrame(wheelAnimate);
+}
+function wheelStop(){
+  const s=wheelState,book=wheelBook();if(!s||!book||!s.running)return;
+  // Use the last painted frame. No clock advance, extra draw, easing or RNG.
+  const id=s.shown;wheelPause();if(id===null||s.picked.includes(id))return;
+  if(!wheelAll(book).includes(id)){s.cache=null;wheelStart();return}
+  s.picked.push(id);
+  if(!wheelDraft(book)){s.picked.pop();$('#wheel-error').textContent='保存できませんでした';wheelUpdate();return}
+  wheelUpdate();if(s.picked.length>=s.target)wheelFinish();
+}
+function wheelFinish(replace=false){
+  const s=wheelState,book=wheelBook();if(!s||!book||!s.target||s.picked.length<s.target)return;
+  const available=new Set(wheelAll(book));
+  if(s.picked.some(n=>!available.has(n))){s.picked=s.picked.filter(n=>available.has(n));wheelUpdate();return}
+  const previous=book.act,draft=book.wheelDraft;
+  if(!replace&&previous&&(Object.keys(previous.r||{}).length||previous.ms||previous.t0||String(previous.comment||'').trim())){
+    s.replace=true;$('#wheel-error').textContent='記録中の問題を入れ替えますか？';wheelUpdate();return;
+  }
+  const active={nums:s.picked.slice(),r:{},comment:'',ms:0,t0:null,rv:0};book.act=active;delete book.wheelDraft;
+  if(!save()){book.act=previous;if(draft!==undefined)book.wheelDraft=draft;$('#wheel-error').textContent='保存できませんでした';wheelUpdate();return}
+  limitBeginSession(active,book);undoArm=false;wheelClose(false,true);tab='roulette';saveUI();render();window.scrollTo(0,0);
+}
+function wheelToggle(){
+  const s=wheelState;if(!s)return;
+  if(s.picked.length>=s.target&&s.target)return wheelFinish(s.replace);
+  if(s.running)wheelStop();else wheelStart();
+}
+function wheelRemove(id){
+  const s=wheelState,book=wheelBook();if(!s||!book||!s.picked.includes(id))return;
+  wheelPause();const before=s.picked.slice();s.picked=s.picked.filter(n=>n!==id);
+  if(!wheelDraft(book)){s.picked=before;$('#wheel-error').textContent='保存できませんでした'}
+  else{$('#wheel-error').textContent='';s.replace=false;s.face=wheelRemaining();s.cache=null;wheelDraw()}
+  wheelUpdate();
+}
+function wheelOpenConfig(){
+  if(!wheelState||!$('#wheel-config').hidden)return;
+  wheelPause();$('#wheel-config').hidden=false;wheelConfigUpdate();pushOv();$('#wheel-config-close').focus({preventScroll:true});
+}
+function wheelCloseConfig(fromBack=false){
+  if($('#wheel-config').hidden)return;$('#wheel-config').hidden=true;if(!fromBack)popOv(true);
+  if(wheelState)$('#wheel-settings').focus({preventScroll:true});
+}
+function wheelConfigUpdate(){
+  const s=wheelState;if(!s)return;
+  for(const [id,mode]of [['wheel-parts','parts'],['wheel-random','random']]){
+    const e=$('#'+id),on=s.prefs.order===mode;e.setAttribute('aria-pressed',String(on));e.classList.toggle('pri',on);
+  }
+  $('#wheel-speed').value=s.prefs.speed;
+}
+function wheelSetPrefs(order,speed){
+  const s=wheelState,book=wheelBook();if(!s||!book)return;
+  const beforePrefs=book.wheelPrefs,beforeDraft=book.wheelDraft,beforeOrder=s.order;
+  const prefs={order:order==='random'?'random':'parts',speed:Number.isFinite(speed)?Math.max(0,Math.min(100,speed)):50};
+  const changed=prefs.order!==s.prefs.order;
+  s.order=changed?(prefs.order==='random'?wheelShuffle(s.order):s.order.slice().sort((a,b)=>a-b)):s.order;
+  book.wheelPrefs=prefs;
+  if(!wheelDraft(book)){
+    s.order=beforeOrder;if(beforePrefs===undefined)delete book.wheelPrefs;else book.wheelPrefs=beforePrefs;
+    if(beforeDraft===undefined)delete book.wheelDraft;else book.wheelDraft=beforeDraft;
+    $('#wheel-config-error').textContent='保存できませんでした';wheelConfigUpdate();return;
+  }
+  s.prefs=prefs;$('#wheel-config-error').textContent='';wheelConfigUpdate();
+  if(changed){s.face=wheelRemaining();s.cache=null;wheelDraw()}
+}
+$('#wheel-back').addEventListener('click',()=>wheelClose());
+$('#wheel-settings').addEventListener('click',wheelOpenConfig);
+$('#wheel-config-close').addEventListener('click',()=>wheelCloseConfig());
+$('#wheel-parts').addEventListener('click',()=>wheelSetPrefs('parts',+$('#wheel-speed').value));
+$('#wheel-random').addEventListener('click',()=>wheelSetPrefs('random',+$('#wheel-speed').value));
+$('#wheel-speed').addEventListener('change',()=>wheelSetPrefs(wheelState?.prefs.order,+$('#wheel-speed').value));
+$('#wheel-picked').addEventListener('click',e=>{const b=e.target.closest('[data-wheel-remove]');if(b)wheelRemove(+b.dataset.wheelRemove)});
+$('#wheel-toggle').addEventListener('pointerdown',e=>{if(e.button===0&&e.isPrimary!==false){e.preventDefault();wheelToggle()}});
+$('#wheel-toggle').addEventListener('click',e=>{if(e.detail===0)wheelToggle()});
+$('#wheel-page').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!$('#wheel-config').hidden)wheelCloseConfig();else wheelClose();return}
+  if(e.key==='Tab'){
+    const area=$('#wheel-config').hidden?$('#wheel-page'):$('#wheel-config');
+    const list=Array.from(area.querySelectorAll('button:not(:disabled),input')).filter(n=>n.getClientRects().length);
+    const first=list[0],last=list[list.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}
+  }
+});
+$('#wheel-config').addEventListener('click',e=>{if(e.target.id==='wheel-config')wheelCloseConfig()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)wheelPause()});
+window.addEventListener('pagehide',wheelPause);
+window.addEventListener('resize',()=>{if(wheelState){wheelState.cache=null;wheelDraw()}});
+/* End circular roulette. */
+
 window.addEventListener('popstate',()=>{
   if(ovSkip>0){ovSkip--;return}
   let c=false;
-  if(limitDialogOpen){closeLimitDialog(1);c=true}else if(bookEstimateOpen){closeBookEstimate(1);c=true}else if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
+  if(wheelState&&!$('#wheel-config').hidden){wheelCloseConfig(true);c=true}else if(wheelState){wheelClose(true);c=true}else if(limitDialogOpen){closeLimitDialog(1);c=true}else if(bookEstimateOpen){closeBookEstimate(1);c=true}else if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
   if(c&&ovH>0)ovH--;
 });
 window.addEventListener('pagehide',flushNote);
 function render(){
   document.querySelectorAll('#drw button[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  const tt=$('#ttl');if(tt)tt.textContent=TTL[tab]||'';
+  const tt=$('#ttl');if(tt){tt.textContent=TTL[tab]||'';tt.disabled=tab!=='roulette';tt.setAttribute('aria-label',tab==='roulette'?'円のルーレットを開く':TTL[tab]||'')}
   $('#app').innerHTML=(tab==='calc'||tab==='plan'||tab==='memo'||tab==='limits'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,plan:vPlan,memo:vMemo,limits:vLimits,set:vSet}[tab]();
   if(tab==='calc')cUp();
   if(calendarOpen)renderCalendar();
@@ -1700,7 +1955,7 @@ function delOne(id){
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'||e.target.id==='iq'))schOne()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){flushNote()}else{if(tab==='plan')render();if(bookEstimateOpen)renderBookEstimate();maybeGreet()}});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
-$('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.id==='mn')openDrawer()});
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.id==='mn')openDrawer();else if(b&&b.id==='ttl')wheelOpen()});
 $('#app').addEventListener('click',e=>{
   const af=e.target.closest('a[data-first]');
   if(af&&af.dataset&&af.dataset.first){e.preventDefault();openChain(af.dataset.first,af.dataset.next);return}
@@ -1848,7 +2103,7 @@ function go(t,dir){
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#book-estimate-dialog,#drw,#ndl,#limit-dialog'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#book-estimate-dialog,#drw,#ndl,#limit-dialog,#wheel-page'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
