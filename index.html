@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1 study-wheel-shared-params-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -258,9 +258,12 @@ details.pf>summary{cursor:pointer;font-weight:700}
 #wheel-toggle{touch-action:manipulation;user-select:none;-webkit-user-select:none;margin-top:16px}
 #wheel-error,#wheel-config-error{color:var(--D);min-height:20px;font-size:13px;text-align:center;margin:8px 0}
 #wheel-config{position:fixed;inset:0;z-index:1;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:20px}
-.wheel-config-box{width:100%;max-width:360px;background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:18px}
-.wheel-config-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.wheel-config-box{width:100%;max-width:400px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:18px}
+.wheel-config-head{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
 .wheel-config-head button{padding:0;width:44px;height:44px;font-size:24px}
+.wheel-config-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:3px}
+.wheel-shared{margin-top:24px;padding-top:18px;border-top:1px solid var(--bd)}
+.wheel-shared .sq{margin-top:10px}
 .wheel-orders{display:flex;gap:8px;margin-bottom:26px}.wheel-orders button{flex:1}
 .wheel-speed-ends{display:flex;justify-content:space-between;color:var(--mu);font-size:13px;margin-top:6px}
 #wheel-speed{accent-color:var(--pri);padding:0;min-height:44px;touch-action:pan-x}
@@ -391,12 +394,24 @@ details.pf>summary{cursor:pointer;font-weight:700}
   <div id="wheel-config" hidden>
     <div class="wheel-config-box" role="dialog" aria-modal="true" aria-labelledby="wheel-config-title">
       <div class="wheel-config-head"><b id="wheel-config-title">設定</b><button type="button" id="wheel-config-close" class="ghost" aria-label="閉じる">×</button></div>
+      <div class="wheel-config-scroll">
       <label>並び</label>
       <div class="wheel-orders"><button type="button" id="wheel-parts" aria-pressed="true">部順</button><button type="button" id="wheel-random" aria-pressed="false">ランダム</button></div>
       <label for="wheel-speed">速度</label>
       <input type="range" id="wheel-speed" min="0" max="100" step="1" value="50">
       <div class="wheel-speed-ends"><span>遅い</span><span>速い</span></div>
+      <div class="wheel-shared">
+        <label>出題</label>
+        <div class="sq" id="wheel-shared-grid"></div>
+        <details class="rwdetail">
+          <summary>部ごとの出やすさ</summary>
+          <div id="wheel-shared-weights"></div>
+        </details>
+        <p class="mu c" id="wheel-shared-summary"></p>
+        <button type="button" id="wheel-shared-reset" class="ghost w">リセット</button>
+      </div>
       <p id="wheel-config-error" role="status"></p>
+      </div>
     </div>
   </div>
 </section>
@@ -1682,6 +1697,97 @@ function wheelIndex(angle,count){if(!count)return -1;const turn=((-angle%WHEEL_T
 function wheelRate(speed){return .25*Math.pow(800,Math.max(0,Math.min(100,speed))/100)}
 function wheelBook(){return wheelState&&S.books.find(b=>b.id===wheelState.bookId&&S.cur===b.id)}
 function wheelRemaining(s=wheelState){const picked=new Set(s.picked);return s.order.filter(n=>!picked.has(n))}
+function wheelSelected(book){
+  const selected=Array.isArray(book.sel)?[...new Set(book.sel)].filter(n=>Number.isInteger(n)&&n>=1&&n<=book.parts.length):[];
+  return new Set(selected.length?selected:book.parts.map((_,i)=>i+1));
+}
+function wheelEligible(s,book){
+  const selected=wheelSelected(book),picked=new Set(s.picked);
+  return s.order.filter(id=>!picked.has(id)&&selected.has(Math.floor(id/1000))&&partWeight(Math.floor(id/1000),book)>0);
+}
+function wheelMakeFace(book=wheelBook()){
+  const s=wheelState;if(!s||!book)return;
+  const available=wheelEligible(s,book),counts=new Map(),first=new Map();
+  available.forEach(id=>{const part=Math.floor(id/1000);counts.set(part,(counts.get(part)||0)+1);first.set(part,Math.min(first.get(part)||Infinity,id))});
+  s.face=available.filter(id=>!partFromStart(Math.floor(id/1000),book)||first.get(Math.floor(id/1000))===id);
+  // Earliest-first shows the actual next problem and retains the section's full weight.
+  s.faceWeights=s.face.map(id=>{const part=Math.floor(id/1000);return partWeight(part,book)*(partFromStart(part,book)?counts.get(part):1)});
+  const sum=s.faceWeights.reduce((a,b)=>a+b,0);let cumulative=0;
+  s.bounds=[0];s.faceWeights.forEach(weight=>{cumulative+=weight;s.bounds.push(cumulative/sum)});
+  if(sum>0)s.bounds[s.bounds.length-1]=1;
+  s.minSpan=sum>0?Math.min(...s.faceWeights)/sum:1;
+  s.target=Math.min(5,s.picked.length+available.length);s.totalUnseen=wheelAll(book).length;s.cache=null;
+}
+function wheelSectorIndex(angle,bounds){
+  if(bounds.length<2)return -1;
+  const point=(((-angle%WHEEL_TAU)+WHEEL_TAU)%WHEEL_TAU)/WHEEL_TAU;
+  let low=0,high=bounds.length-2;
+  while(low<high){const middle=Math.floor((low+high)/2);if(point<bounds[middle+1])high=middle;else low=middle+1}
+  return low;
+}
+function wheelAngularSpeed(s=wheelState){
+  const speed=s.prefs.speed,min=s.minSpan||1,average=1/(s.face.length||1);
+  const span=min*Math.pow(average/min,speed/100);
+  return Math.min(3,wheelRate(speed)*span)*WHEEL_TAU;
+}
+function wheelRenderShared(){
+  const book=wheelBook(),s=wheelState;if(!book||!s)return;
+  const selected=wheelSelected(book),remaining=wheelRemaining(s);
+  $('#wheel-shared-grid').innerHTML=book.parts.map((_,i)=>{
+    const n=i+1,on=selected.has(n),left=remaining.filter(id=>Math.floor(id/1000)===n).length;
+    return '<button type="button" id="wheel-part-'+n+'" class="sqb'+(on?' on':'')+'" data-wheel-part="'+n+'" aria-pressed="'+on+'">'+n+'<small>残り'+left+'</small></button>';
+  }).join('');
+  $('#wheel-shared-weights').innerHTML=book.parts.map((_,i)=>{
+    const n=i+1,on=selected.has(n),value=partWeight(n,book);
+    return '<div class="rw"><div class="rw-part"><label for="wheel-weight-'+n+'">第'+n+'部</label><button type="button" id="wheel-first-'+n+'" class="rw-order" data-wheel-first="'+n+'" aria-label="第'+n+'部を先頭から" aria-pressed="'+partFromStart(n,book)+'">先頭から</button></div><input id="wheel-weight-'+n+'" data-wheel-weight="'+n+'" type="range" min="0" max="100" step="1" value="'+value+'" aria-describedby="wheel-info-'+n+'"'+(on?'':' disabled')+'><output id="wheel-weight-value-'+n+'" for="wheel-weight-'+n+'">'+value+'</output><div id="wheel-info-'+n+'" class="rwinfo"></div></div>';
+  }).join('');
+  wheelSharedSummary();
+}
+function wheelSharedSummary(){
+  const book=wheelBook(),s=wheelState;if(!book||!s)return;
+  const selected=wheelSelected(book),remaining=wheelRemaining(s),info=book.parts.map((_,i)=>{
+    const n=i+1;return {n,on:selected.has(n),left:remaining.filter(id=>Math.floor(id/1000)===n).length,value:partWeight(n,book)};
+  }),sum=info.reduce((total,x)=>total+(x.on?x.left*x.value:0),0);
+  info.forEach(x=>{
+    const input=$('#wheel-weight-'+x.n),out=$('#wheel-weight-value-'+x.n),note=$('#wheel-info-'+x.n);
+    if(input){input.value=x.value;input.disabled=!x.on;input.style.setProperty('--rw-fill',x.value+'%');input.setAttribute('aria-valuetext','出やすさ '+x.value)}
+    if(out)out.textContent=x.value;
+    if(note)note.textContent=!x.on?'対象外':x.value===0?'出題なし':!x.left?'未修なし':'残り'+x.left+'問・次'+(sum>0?x.left*x.value/sum*100:0).toFixed(1)+'%';
+  });
+  const count=info.reduce((total,x)=>total+(x.on&&x.value>0?x.left:0),0);
+  $('#wheel-shared-summary').textContent='対象'+selected.size+'/'+book.parts.length+'部・未修'+count+'問';
+  $('#wheel-shared-reset').disabled=selected.size===book.parts.length&&book.parts.every((_,i)=>partWeight(i+1,book)===50&&!partFromStart(i+1,book));
+}
+function wheelEditShared(kind,n,value){
+  const book=wheelBook(),s=wheelState;if(!book||!s)return;
+  if(kind!=='reset'&&(!Number.isInteger(n)||n<1||n>book.parts.length))return;
+  if(kind==='weight'&&!Number.isFinite(value))return;
+  wheelPause();
+  const before={sel:book.sel,weights:book.weights,fromStart:book.fromStart,wheelDraft:book.wheelDraft};
+  if(kind==='part'){
+    const selected=wheelSelected(book);if(selected.has(n))selected.delete(n);else selected.add(n);
+    if(!selected.size){$('#wheel-config-error').textContent='1つ以上選んでください';return}
+    book.sel=selected.size===book.parts.length?null:[...selected].sort((a,b)=>a-b);
+  }else if(kind==='weight'){
+    book.weights=book.parts.map((_,i)=>partWeight(i+1,book));book.weights[n-1]=Math.max(0,Math.min(100,Math.round(value)));
+  }else if(kind==='first'){
+    book.fromStart=book.parts.map((_,i)=>partFromStart(i+1,book));book.fromStart[n-1]=!book.fromStart[n-1];
+    if(!book.fromStart.some(Boolean))delete book.fromStart;
+  }else if(kind==='reset'){book.sel=null;delete book.weights;delete book.fromStart}
+  else return;
+  if(!wheelDraft(book)){
+    for(const key of Object.keys(before)){if(before[key]===undefined)delete book[key];else book[key]=before[key]}
+    $('#wheel-config-error').textContent='保存できませんでした';
+    if(kind==='weight')wheelSharedSummary();else wheelRenderShared();
+    if(kind==='part'||kind==='first')$('#wheel-'+kind+'-'+n)?.focus({preventScroll:true});
+    return;
+  }
+  $('#wheel-config-error').textContent='';wheelMakeFace(book);wheelDraw();wheelUpdate();
+  if(kind==='weight')wheelSharedSummary();else wheelRenderShared();
+  if(kind==='part'||kind==='first')$('#wheel-'+kind+'-'+n)?.focus({preventScroll:true});
+  render();
+}
+
 function wheelDraft(book){
   const s=wheelState,before=book.wheelDraft;
   book.wheelDraft={v:1,order:s.order.slice(),picked:s.picked.slice(),angle:s.angle};
@@ -1699,7 +1805,7 @@ function wheelOpen(){
   const picked=draft&&draft.v===1&&Array.isArray(draft.picked)?[...new Set(draft.picked)].filter(n=>valid.has(n)).slice(0,5):[];
   const angle=Number.isFinite(draft?.angle)?draft.angle%WHEEL_TAU:0;
   wheelState={bookId:book.id,order,picked,target:Math.min(5,all.length),angle,prefs,face:[],shown:null,running:false,last:0,cache:null,replace:false,overflow:document.body.style.overflow,background:[]};
-  wheelState.face=wheelRemaining();
+  wheelMakeFace(book);
   const page=$('#wheel-page');page.hidden=false;document.body.style.overflow='hidden';
   for(const id of ['nav','app','quick-nav']){const e=document.getElementById(id);if(e){wheelState.background.push([e,e.hasAttribute('inert')]);e.setAttribute('inert','')}}
   $('#wheel-book').textContent=book.name;$('#wheel-error').textContent='';
@@ -1725,18 +1831,19 @@ function wheelUpdate(){
   const s=wheelState;if(!s)return;
   const button=$('#wheel-toggle'),done=s.target>0&&s.picked.length>=s.target;
   button.disabled=!s.target;
-  button.textContent=!s.target?'未修なし':done?(s.replace?'入れ替える':'評価へ'):s.running?'止める':'回す';
+  button.textContent=!s.target?(s.totalUnseen?'対象なし':'未修なし'):done?(s.replace?'入れ替える':'評価へ'):s.running?'止める':'回す';
   $('#wheel-count').textContent=s.picked.length+' / '+s.target;
   $('#wheel-picked').innerHTML=s.picked.map(n=>'<button type="button" class="wheel-chip" data-wheel-remove="'+n+'" aria-label="'+esc(lab(n))+'を戻す">'+esc(sh(n))+' <span aria-hidden="true">×</span></button>').join('');
 }
 function wheelCache(size,ratio){
   const s=wheelState,n=s.face.length,canvas=document.createElement('canvas');canvas.width=canvas.height=Math.round(size*ratio);
-  const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);const c=size/2,r=Math.max(1,c-9),inner=r*.49,step=WHEEL_TAU/(n||1);
+  const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);const c=size/2,r=Math.max(1,c-9),inner=r*.49;
   const theme=getComputedStyle(document.documentElement),border=theme.getPropertyValue('--bd').trim(),ink='#10131a';
   s.colors={bg:theme.getPropertyValue('--bg').trim(),border,accent:theme.getPropertyValue('--pri').trim()};
-  ctx.translate(c,c);ctx.lineWidth=Math.min(1,step*r*.35);ctx.strokeStyle=s.colors.bg;
+  ctx.translate(c,c);ctx.strokeStyle=s.colors.bg;
   for(let i=0;i<n;i++){
-    const start=-Math.PI/2+i*step,part=Math.floor(s.face[i]/1000);
+    const start=-Math.PI/2+s.bounds[i]*WHEEL_TAU,step=(s.bounds[i+1]-s.bounds[i])*WHEEL_TAU,part=Math.floor(s.face[i]/1000);
+    ctx.lineWidth=Math.min(1,step*r*.35);
     ctx.beginPath();ctx.arc(0,0,r,start,start+step);ctx.arc(0,0,inner,start+step,start,true);ctx.closePath();
     ctx.fillStyle='hsl('+(225+(part%6)*8)+' 76% '+(65+(part%3)*5)+'%)';ctx.fill();if(n<800)ctx.stroke();
     if(step*r*.76>=13){
@@ -1754,22 +1861,22 @@ function wheelDraw(){
   const pixels=Math.round(size*ratio);if(canvas.width!==pixels||canvas.height!==pixels){canvas.width=canvas.height=pixels}
   const ctx=canvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,size,size);
   ctx.save();ctx.translate(size/2,size/2);ctx.rotate(s.angle);ctx.drawImage(s.cache.canvas,-size/2,-size/2,size,size);ctx.restore();
-  const index=wheelIndex(s.angle,s.face.length),id=index<0?null:s.face[index];s.shown=id;
+  const index=wheelSectorIndex(s.angle,s.bounds),id=index<0?null:s.face[index];s.shown=id;
   $('#wheel-part').textContent=id?'第'+Math.floor(id/1000)+'部':'';
-  $('#wheel-number').textContent=id?num(id)+(stA()?'番':'問目'):'未修なし';
-  canvas.setAttribute('aria-label',id?lab(id):'未修なし');
+  $('#wheel-number').textContent=id?num(id)+(stA()?'番':'問目'):(s.totalUnseen?'対象なし':'未修なし');
+  canvas.setAttribute('aria-label',id?lab(id):(s.totalUnseen?'対象なし':'未修なし'));
 }
 function wheelAnimate(now){
   const s=wheelState;if(!s||!s.running)return;
   const dt=Math.max(0,Math.min(80,now-s.last));s.last=now;
-  const speed=Math.min(3,wheelRate(s.prefs.speed)/(s.face.length||1))*WHEEL_TAU;
+  const speed=wheelAngularSpeed(s);
   s.angle=(s.angle+speed*dt/1000)%WHEEL_TAU;wheelDraw();wheelFrame=requestAnimationFrame(wheelAnimate);
 }
 function wheelStart(){
   const s=wheelState,book=wheelBook();if(!s||!book)return wheelClose();
   const all=wheelAll(book),valid=new Set(all);s.order=s.order.filter(n=>valid.has(n));
   const old=new Set(s.order);s.order.push(...all.filter(n=>!old.has(n)));s.picked=s.picked.filter(n=>valid.has(n));
-  s.target=Math.min(5,all.length);s.face=wheelRemaining();s.cache=null;s.replace=false;
+  wheelMakeFace(book);s.replace=false;
   if(!s.face.length){wheelUpdate();if(s.picked.length)wheelFinish();return}
   $('#wheel-error').textContent='';s.running=true;s.last=performance.now();wheelDraw();wheelUpdate();wheelFrame=requestAnimationFrame(wheelAnimate);
 }
@@ -1803,12 +1910,12 @@ function wheelRemove(id){
   const s=wheelState,book=wheelBook();if(!s||!book||!s.picked.includes(id))return;
   wheelPause();const before=s.picked.slice();s.picked=s.picked.filter(n=>n!==id);
   if(!wheelDraft(book)){s.picked=before;$('#wheel-error').textContent='保存できませんでした'}
-  else{$('#wheel-error').textContent='';s.replace=false;s.face=wheelRemaining();s.cache=null;wheelDraw()}
+  else{$('#wheel-error').textContent='';s.replace=false;wheelMakeFace(book);wheelDraw()}
   wheelUpdate();
 }
 function wheelOpenConfig(){
   if(!wheelState||!$('#wheel-config').hidden)return;
-  wheelPause();$('#wheel-config').hidden=false;wheelConfigUpdate();pushOv();$('#wheel-config-close').focus({preventScroll:true});
+  wheelPause();$('#wheel-config').hidden=false;wheelConfigUpdate();wheelRenderShared();pushOv();$('#wheel-config-close').focus({preventScroll:true});
 }
 function wheelCloseConfig(fromBack=false){
   if($('#wheel-config').hidden)return;$('#wheel-config').hidden=true;if(!fromBack)popOv(true);
@@ -1834,7 +1941,7 @@ function wheelSetPrefs(order,speed){
     $('#wheel-config-error').textContent='保存できませんでした';wheelConfigUpdate();return;
   }
   s.prefs=prefs;$('#wheel-config-error').textContent='';wheelConfigUpdate();
-  if(changed){s.face=wheelRemaining();s.cache=null;wheelDraw()}
+  if(changed){wheelMakeFace(book);wheelDraw()}
 }
 $('#wheel-back').addEventListener('click',()=>wheelClose());
 $('#wheel-settings').addEventListener('click',wheelOpenConfig);
@@ -1842,6 +1949,19 @@ $('#wheel-config-close').addEventListener('click',()=>wheelCloseConfig());
 $('#wheel-parts').addEventListener('click',()=>wheelSetPrefs('parts',+$('#wheel-speed').value));
 $('#wheel-random').addEventListener('click',()=>wheelSetPrefs('random',+$('#wheel-speed').value));
 $('#wheel-speed').addEventListener('change',()=>wheelSetPrefs(wheelState?.prefs.order,+$('#wheel-speed').value));
+$('#wheel-config').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.wheelPart)wheelEditShared('part',+b.dataset.wheelPart);
+  else if(b.dataset.wheelFirst)wheelEditShared('first',+b.dataset.wheelFirst);
+  else if(b.id==='wheel-shared-reset')wheelEditShared('reset');
+});
+$('#wheel-config').addEventListener('input',e=>{if(e.target.matches('input[data-wheel-weight]'))wheelEditShared('weight',+e.target.dataset.wheelWeight,+e.target.value)});
+$('#wheel-config').addEventListener('keydown',e=>{if(e.target.matches('input[data-wheel-weight]'))e.target.dataset.weightKeyboard='1'});
+$('#wheel-config').addEventListener('pointerdown',e=>{if(e.target.matches('input[data-wheel-weight]'))delete e.target.dataset.weightKeyboard});
+$('#wheel-config').addEventListener('change',e=>{
+  const input=e.target;if(!input.matches('input[data-wheel-weight]')||input.dataset.weightKeyboard)return;
+  const value=+input.value;if(value>=45&&value<=55){input.value='50';wheelEditShared('weight',+input.dataset.wheelWeight,50)}
+});
 $('#wheel-picked').addEventListener('click',e=>{const b=e.target.closest('[data-wheel-remove]');if(b)wheelRemove(+b.dataset.wheelRemove)});
 $('#wheel-toggle').addEventListener('pointerdown',e=>{if(e.button===0&&e.isPrimary!==false){e.preventDefault();wheelToggle()}});
 $('#wheel-toggle').addEventListener('click',e=>{if(e.detail===0)wheelToggle()});
@@ -1849,7 +1969,7 @@ $('#wheel-page').addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!$('#wheel-config').hidden)wheelCloseConfig();else wheelClose();return}
   if(e.key==='Tab'){
     const area=$('#wheel-config').hidden?$('#wheel-page'):$('#wheel-config');
-    const list=Array.from(area.querySelectorAll('button:not(:disabled),input')).filter(n=>n.getClientRects().length);
+    const list=Array.from(area.querySelectorAll('button:not(:disabled),input:not(:disabled)')).filter(n=>n.getClientRects().length);
     const first=list[0],last=list[list.length-1];
     if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}
