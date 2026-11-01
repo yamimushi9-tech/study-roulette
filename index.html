@@ -1677,7 +1677,7 @@ $('#ndl').addEventListener('click',e=>{
   if(b.id==='nb')closeNote();else if(b.id==='ndel')delNote();
 });
 /* Circular roulette: the displayed pointer chooses the problem, never a draw after STOP. */
-let wheelState=null,wheelFrame=0,wheelResize=null;
+let wheelState=null,wheelFrame=0,wheelResize=null,wheelPress=null;
 const WHEEL_TAU=Math.PI*2;
 function wheelPrefs(book){
   const p=book.wheelPrefs||{};
@@ -1819,6 +1819,7 @@ function wheelPause(){
 }
 function wheelClose(fromBack=false,completed=false){
   if(!wheelState)return;
+  wheelPress=null;
   if(!$('#wheel-config').hidden)wheelCloseConfig(fromBack);
   wheelPause();if(wheelResize){wheelResize.disconnect();wheelResize=null}
   const s=wheelState;wheelState=null;$('#wheel-page').hidden=true;
@@ -1891,6 +1892,8 @@ function wheelStop(){
 }
 function wheelFinish(replace=false){
   const s=wheelState,book=wheelBook();if(!s||!book||!s.target||s.picked.length<s.target)return;
+  // Keep the pressed control in place until its click consumes the release.
+  if(wheelPress){wheelPress.finish=replace;return}
   const available=new Set(wheelAll(book));
   if(s.picked.some(n=>!available.has(n))){s.picked=s.picked.filter(n=>available.has(n));wheelUpdate();return}
   const previous=book.act,draft=book.wheelDraft;
@@ -1963,8 +1966,21 @@ $('#wheel-config').addEventListener('change',e=>{
   const value=+input.value;if(value>=45&&value<=55){input.value='50';wheelEditShared('weight',+input.dataset.wheelWeight,50)}
 });
 $('#wheel-picked').addEventListener('click',e=>{const b=e.target.closest('[data-wheel-remove]');if(b)wheelRemove(+b.dataset.wheelRemove)});
-$('#wheel-toggle').addEventListener('pointerdown',e=>{if(e.button===0&&e.isPrimary!==false){e.preventDefault();wheelToggle()}});
-$('#wheel-toggle').addEventListener('click',e=>{if(e.detail===0)wheelToggle()});
+$('#wheel-toggle').addEventListener('pointerdown',e=>{
+  if(e.button!==0||e.isPrimary===false)return;
+  e.stopPropagation();wheelPress={id:e.pointerId,finish:null};
+  try{$('#wheel-toggle').setPointerCapture(e.pointerId)}catch(_){}
+  wheelToggle();
+});
+$('#wheel-toggle').addEventListener('pointercancel',e=>{if(wheelPress?.id===e.pointerId)wheelPress=null});
+$('#wheel-toggle').addEventListener('click',e=>{
+  e.preventDefault();e.stopPropagation();
+  if(wheelPress){
+    if(Number.isFinite(e.pointerId)&&e.pointerId>=0&&e.pointerId!==wheelPress.id)return;
+    const finish=wheelPress.finish;wheelPress=null;
+    if(finish!==null)wheelFinish(finish);
+  }else if(e.detail===0)wheelToggle();
+});
 $('#wheel-page').addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!$('#wheel-config').hidden)wheelCloseConfig();else wheelClose();return}
   if(e.key==='Tab'){
@@ -1976,8 +1992,8 @@ $('#wheel-page').addEventListener('keydown',e=>{
   }
 });
 $('#wheel-config').addEventListener('click',e=>{if(e.target.id==='wheel-config')wheelCloseConfig()});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)wheelPause()});
-window.addEventListener('pagehide',wheelPause);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){wheelPress=null;wheelPause()}});
+window.addEventListener('pagehide',()=>{wheelPress=null;wheelPause()});
 window.addEventListener('resize',()=>{if(wheelState){wheelState.cache=null;wheelDraw()}});
 /* End circular roulette. */
 
