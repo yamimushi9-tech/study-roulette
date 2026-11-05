@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1 study-wheel-shared-params-v1 study-part-groups-v1 study-calendar-cache-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1 study-wheel-shared-params-v1 study-part-groups-v1 study-calendar-cache-v1 study-home-choice-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -204,6 +204,9 @@ details.card[open]>summary{margin-bottom:10px}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:17px}
 .mh button{padding:4px 12px}
 details.pf>summary{cursor:pointer;font-weight:700}
+.pl .row>b{min-width:0;overflow-wrap:anywhere}
+.plan-actions{display:flex;gap:6px;flex:0 0 auto}
+.plan-actions button{min-width:36px;min-height:36px;margin:0}
 .pbig{font-size:34px;font-weight:800;line-height:1.2;font-variant-numeric:tabular-nums}
 .pbig small{font-size:15px;font-weight:700;margin:0 2px}
 .pl.old{opacity:.55}
@@ -236,11 +239,14 @@ details.pf>summary{cursor:pointer;font-weight:700}
 #pg-message:empty{display:none}
 #msg:empty{display:none}
 
-#book-estimate-dialog{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.55);opacity:0;transition:opacity .18s}
-#book-estimate-dialog[hidden]{display:none}
-#book-estimate-dialog.show{opacity:1}
-#book-estimate-dialog.show .mbox{transform:none}
-#book-estimate-dialog .mbox{max-height:88vh;max-height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain;text-align:center}
+#book-estimate-dialog,#plan-edit-dialog{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.55);opacity:0;transition:opacity .18s}
+#book-estimate-dialog[hidden],#plan-edit-dialog[hidden]{display:none}
+#book-estimate-dialog.show,#plan-edit-dialog.show{opacity:1}
+#book-estimate-dialog.show .mbox,#plan-edit-dialog.show .mbox{transform:none}
+#book-estimate-dialog .mbox,#plan-edit-dialog .mbox{max-height:88vh;max-height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain}
+#book-estimate-dialog .mbox{text-align:center}
+#plan-edit-message{color:var(--D);margin:8px 0 0}
+#plan-edit-message:empty{display:none}
 #book-estimate-close{min-width:44px;min-height:44px}
 #book-estimate-name{margin:4px 0 18px;font-size:16px;font-weight:700;overflow-wrap:anywhere}
 .be-label{margin:0 0 8px;font-size:14px}
@@ -368,6 +374,19 @@ details.pf>summary{cursor:pointer;font-weight:700}
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="calendar-day-title">
     <div class="mh"><b id="calendar-day-title">予定</b><button id="calendar-day-close" class="ghost" aria-label="日付の予定を閉じる">✕</button></div>
     <div id="calendar-detail"></div>
+  </div>
+</div>
+<div id="plan-edit-dialog" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="plan-edit-title">
+    <div class="mh"><b id="plan-edit-title">予定を編集</b><button type="button" id="plan-edit-close" class="ghost" aria-label="閉じる">✕</button></div>
+    <form id="plan-edit-form" novalidate>
+      <label for="plan-edit-name">予定名</label>
+      <input id="plan-edit-name" maxlength="30" autocomplete="off">
+      <label for="plan-edit-date" style="margin-top:10px">日付</label>
+      <input id="plan-edit-date" type="date" min="0100-01-01" max="9999-12-31" required>
+      <button type="submit" class="pri w">保存</button>
+      <p id="plan-edit-message" role="status"></p>
+    </form>
   </div>
 </div>
 <div id="book-estimate-dialog" hidden>
@@ -830,7 +849,7 @@ function limitWarningData(){
 function limitSyncWarning(){if(!limitNativeAvailable())return;try{limitCall('restrictionWarning',JSON.stringify(limitWarningData()))}catch(_){}}
 function vLimits(){
   if(!limitNativeAvailable())return '<section class="card"><b>APKの更新が必要です</b></section>';
-  return '<section class="card"><button id="limit-launcher-open" class="pri w">開く</button><button id="limit-home" class="ghost w">ホームに設定</button></section>';
+  return '<section class="card"><button id="limit-launcher-open" class="pri w">アプリ内で開く</button><button id="limit-home" class="ghost w">ホームに設定</button></section>';
 }
 function closeLimitDialog(){limitDialogOpen=false}
 function handleLimitClick(b){
@@ -1127,6 +1146,7 @@ $('#mdl').addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
+    if(editingPlan){e.preventDefault();closePlanEdit();return}
     if(bookEstimateOpen){e.preventDefault();closeBookEstimate();return}
     if(calendarDayOpen){e.preventDefault();closeCalendarDay();return}
     closeAdd();closeHist();closeRcfg();closeGreet();closeNote();closeDrawer();closeCalendar();
@@ -1781,11 +1801,64 @@ function vPlan(){
     else if(toDay===0){big='今日が<small>当日</small>です';sub='1週間前の日から '+(-toWk)+'日が過ぎました'}
     else{big='<small>終了しました</small>';sub='当日から '+(-toDay)+'日が過ぎました'}
     const ar=delArm==='pl'+x.p.id;
-    return `<div class="card pl${old?' old':''}"><div class="row"><b>${esc(x.p.name||'予定')}</b><button class="dl${ar?' arm':''}" data-pdel="${esc(x.p.id)}">${ar?'もう一度押すと削除':'🗑'}</button></div><div class="mu">${fmtN(x.day)}</div><div style="margin:10px 0 4px" class="mu">1週間前（${shortN(wk)}）まで</div><div class="pbig">${big}</div><div class="mu" style="margin-top:6px">${sub}</div></div>`;
+    const id=esc(x.p.id);
+    return `<div class="card pl${old?' old':''}"><div class="row"><b>${esc(x.p.name||'予定')}</b><div class="plan-actions"><button type="button" class="dl" data-pedit="${id}" aria-label="予定を編集" aria-haspopup="dialog" aria-controls="plan-edit-dialog">✎</button><button type="button" class="dl${ar?' arm':''}" data-pdel="${id}">${ar?'もう一度押すと削除':'🗑'}</button></div></div><div class="mu">${fmtN(x.day)}</div><div style="margin:10px 0 4px" class="mu">1週間前（${shortN(wk)}）まで</div><div class="pbig">${big}</div><div class="mu" style="margin-top:6px">${sub}</div></div>`;
   }).join(''):'<p class="mu c" style="margin:18px 0">予定なし</p>';
   h+=`<details class="card pf"${L.length?'':' open'}><summary>＋ 予定を追加</summary><label style="margin-top:12px">名前（なくてもOK）</label><input id="pn" placeholder="例: 試験" maxlength="30" value="${esc(plN)}"><label style="margin-top:10px">日付（年・月・日）</label><input id="pd" type="date" value="${esc(plD)}"><button id="padd" class="pri w">追加</button><p class="mu c" id="pmsg" style="min-height:20px"></p></details>`;
   return h;
 }
+let editingPlan=null;
+function openPlanEdit(id){
+  if(editingPlan)return;
+  const plan=plansList().find(p=>p.id===id);
+  if(!plan){render();return}
+  if(delArm!==null){delArm=null;render()}
+  editingPlan={id,name:String(plan.name??''),date:plan.date};
+  $('#plan-edit-name').value=editingPlan.name;
+  $('#plan-edit-date').value=editingPlan.date;
+  say('#plan-edit-message','');
+  const before=ovH;
+  pOpen($('#plan-edit-dialog'));pushOv();editingPlan.hadHistory=ovH>before;
+  $('#plan-edit-close').focus({preventScroll:true});
+}
+function closePlanEdit(fromPop){
+  if(!editingPlan)return;
+  const {id,hadHistory}=editingPlan;
+  editingPlan=null;pClose($('#plan-edit-dialog'));
+  const button=[...document.querySelectorAll('[data-pedit]')].find(b=>b.dataset.pedit===id);
+  button?.focus({preventScroll:true});
+  if(!fromPop&&hadHistory)popOv(true);
+}
+function savePlanEdit(){
+  if(!editingPlan)return;
+  const date=$('#plan-edit-date').value,name=$('#plan-edit-name').value;
+  if(!date)return say('#plan-edit-message','日付を入力してください');
+  if(planDay({date})===null)return say('#plan-edit-message','日付が正しくありません');
+  try{
+    // Apply the edit to the latest saved plan so changes from the calendar are retained.
+    const raw=localStorage.getItem(K),latest=raw?JSON.parse(raw):S;
+    const index=Array.isArray(latest?.plans)?latest.plans.findIndex(p=>p?.id===editingPlan.id):-1;
+    if(index<0)return say('#plan-edit-message','この予定は削除されています');
+    const plans=latest.plans.slice(),plan={...plans[index]};
+    if(name!==editingPlan.name)plan.name=name.trim().slice(0,30);
+    if(date!==editingPlan.date)plan.date=date;
+    plans[index]=plan;
+    localStorage.setItem(K,JSON.stringify({...latest,plans}));
+    S.plans=plans;
+  }catch(_){return say('#plan-edit-message','予定を保存できませんでした')}
+  try{window.__studyMemoAfterSave?.(JSON.parse(memoBaseText),[])}catch(_){}
+  render();closePlanEdit();toast('✅ 予定を保存しました');
+}
+$('#plan-edit-form').addEventListener('submit',e=>{e.preventDefault();savePlanEdit()});
+$('#plan-edit-dialog').addEventListener('click',e=>{
+  if(e.target.id==='plan-edit-dialog'||e.target.closest('#plan-edit-close'))closePlanEdit();
+});
+$('#plan-edit-dialog').addEventListener('keydown',e=>{
+  if(e.key!=='Tab')return;
+  const controls=$('#plan-edit-dialog').querySelectorAll('button,input'),first=controls[0],last=controls[controls.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+});
 const todayStr=()=>{const t=nowFn();return t.getFullYear()+'-'+pad2(t.getMonth()+1)+'-'+pad2(t.getDate())};
 function closeGreet(){clearTimeout(gt);pClose($('#gdl'))}
 function maybeGreet(){
@@ -2239,7 +2312,7 @@ window.addEventListener('resize',()=>{if(wheelState){wheelState.cache=null;wheel
 window.addEventListener('popstate',()=>{
   if(ovSkip>0){ovSkip--;return}
   let c=false;
-  if(wheelState&&!$('#wheel-config').hidden){wheelCloseConfig(true);c=true}else if(wheelState){wheelClose(true);c=true}else if(limitDialogOpen){closeLimitDialog(1);c=true}else if(bookEstimateOpen){closeBookEstimate(1);c=true}else if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
+  if(wheelState&&!$('#wheel-config').hidden){wheelCloseConfig(true);c=true}else if(wheelState){wheelClose(true);c=true}else if(limitDialogOpen){closeLimitDialog(1);c=true}else if(bookEstimateOpen){closeBookEstimate(1);c=true}else if(editingPlan){closePlanEdit(1);c=true}else if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
   if(c&&ovH>0)ovH--;
 });
 window.addEventListener('pagehide',flushNote);
@@ -2360,6 +2433,7 @@ $('#app').addEventListener('click',e=>{
   if(b.dataset.nid){openNote(b.dataset.nid);return}
   if(id==='rcfg'){openRcfg();return}
   if(b.dataset.del){const ts=+b.dataset.del;if(delArm!==ts){delArm=ts;render();return}delArm=null;delRec(ts);return}
+  if(b.dataset.pedit!==undefined){openPlanEdit(b.dataset.pedit);return}
   if(b.dataset.pdel){const k='pl'+b.dataset.pdel;if(delArm!==k){delArm=k;render();return}delArm=null;S.plans=plansList().filter(x=>x.id!==b.dataset.pdel);save();render();toast('🗑 予定を削除しました');return}
   if(b.dataset.sd){const k='p'+sId;if(delArm!==k){delArm=k;render();return}delArm=null;delOne(sId);return}
   if(b.dataset.sg){sR=b.dataset.sg;sMsg='';const t=$('#scm');if(t)sC=t.value;render();return}
@@ -2498,7 +2572,6 @@ const TABS=['roulette','calc','log','other'];
 function go(t,dir){
   if(window.__studyLauncherMemo&&t!=='memo')return;
   if(t==='memo'&&typeof window.__studySyncMemo==='function')window.__studySyncMemo();
-  if(t==='limits'&&limitNativeAvailable()){limitSyncWarning();limitCall('previewRestrictionHome');return}
   const o=Math.max(0,TABS.includes(tab)?TABS.indexOf(tab):3),n=TABS.includes(t)?TABS.indexOf(t):3;
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
   anim(dir===1||dir===-1?dir:(n>o?1:-1),40,.22);
@@ -2506,7 +2579,7 @@ function go(t,dir){
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#book-estimate-dialog,#drw,#ndl,#limit-dialog,#wheel-page'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#book-estimate-dialog,#plan-edit-dialog,#drw,#ndl,#limit-dialog,#wheel-page'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
