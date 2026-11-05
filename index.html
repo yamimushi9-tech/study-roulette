@@ -94,6 +94,8 @@ h3{margin:18px 2px 8px;font-size:15px}
 .bks{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 14px}
 .bk{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px}
 .bk.on{background:var(--pri);color:var(--pt);border-color:var(--pri)}
+.bk.needs-study{border-color:var(--D);color:var(--D);background:color-mix(in srgb,var(--D) 14%,var(--card))}
+.bk.needs-study.on{background:var(--D);color:var(--pt)}
 .cdp{min-height:120px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;word-break:break-all}
 .cx{font-size:32px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
 .cr{font-size:18px;color:var(--mu);min-height:26px;margin-top:4px;font-variant-numeric:tabular-nums}
@@ -120,6 +122,17 @@ details.card>summary::-webkit-details-marker{display:none}
 details.card>summary::after{content:"▸";color:var(--mu);margin-left:4px}
 details.card[open]>summary::after{content:"▾"}
 details.card[open]>summary{margin-bottom:10px}
+.settings-group{padding:0}
+.settings-title{margin:0;padding:10px 14px 4px;color:var(--mu);font-size:12px;font-weight:700}
+.settings-row+.settings-row{border-top:1px solid var(--bd)}
+.settings-row>summary,.settings-link{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;padding:10px 14px;text-align:left;font-size:14px;font-weight:700}
+.settings-row>summary{cursor:pointer;list-style:none}
+.settings-row>summary::-webkit-details-marker{display:none}
+.settings-row>summary::after,.settings-link::after{content:"▸";flex:none;color:var(--mu);font-size:12px}
+.settings-row[open]>summary::after{content:"▾"}
+.settings-link{width:100%;margin:0;border:0;border-radius:0;background:transparent;color:var(--tx)}
+.settings-value{margin-left:auto;min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mu);font-size:13px;font-weight:400}
+.settings-body{padding:0 14px 12px}
 .sn{margin-left:auto;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}
 #toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translate(-50%,12px);max-width:86%;background:var(--pri);color:var(--pt);padding:10px 18px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:100;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
@@ -573,7 +586,9 @@ function partGroupEditorBody(book=curBook()){
 }
 function vPartGroups(book=curBook()){
   const draft=partGroupDraft(book);
-  return '<details id="part-group-settings" class="card" data-pg-book="'+esc(book.id)+'"'+(draft.open?' open':'')+'><summary>部のまとまり</summary><div id="pg-editor">'+partGroupEditorBody(book)+'</div></details>';
+  return `<details id="part-group-settings" class="settings-row" data-pg-book="${esc(book.id)}"${draft.open?' open':''}>
+    <summary>部のまとまり</summary><div class="settings-body" id="pg-editor">${partGroupEditorBody(book)}</div>
+  </details>`;
 }
 function refreshPartGroupEditor(){
   const panel=$('#part-group-settings'),editor=$('#pg-editor');if(!panel||!editor)return;
@@ -646,12 +661,14 @@ const el=()=>S.act?S.act.ms+(S.act.t0?Date.now()-S.act.t0:0):0;
 const cdList=()=>Object.keys(S.rated).map(Number).filter(n=>S.rated[n]==='C'||S.rated[n]==='D').sort((x,y)=>x-y);
 const chip=(n,g,d)=>`<span class="chip c${g}"${d?` data-id="${n}"`:''}>${sh(n)}${g?' '+g:''}</span>`;
 
-function setupForm(t){
-  return `<details class="card" id="book-parts-settings">
-    <summary>${t}</summary>
-    <input id="tot" aria-label="各部の問題数" value="${esc(specStr(curBook()))}">
-    <p class="mu">問題数：8,4,6 ／ 範囲：1-8,9-20<br>${S.parts.length}部・${total()}問</p>
-    <button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p>
+function setupForm(){
+  return `<details class="settings-row" id="book-parts-settings">
+    <summary><span>各部の問題数</span><span class="settings-value">${S.parts.length}部・${total()}問</span></summary>
+    <div class="settings-body">
+      <input id="tot" aria-label="各部の問題数" value="${esc(specStr(curBook()))}">
+      <p class="mu">問題数：8,4,6 ／ 範囲：1-8,9-20</p>
+      <button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p>
+    </div>
   </details>`;
 }
 function vRoulette(){
@@ -716,6 +733,18 @@ function anim(d,px,sec){
 }
 function vBar(){
   return '<div class="bks">'+S.books.map(b=>`<button class="bk${b.id===S.cur?' on':''}${b.id===popId?' pop':''}" data-bk="${esc(b.id)}"${b.id===S.cur?' aria-haspopup="dialog" aria-controls="book-estimate-dialog"':''}>${esc(b.name)}</button>`).join('')+'<button class="bk" id="bkadd">＋</button></div>';
+}
+function refreshBookGoalButtons(){
+  const buttons=document.querySelectorAll('#app .bk[data-bk]');
+  if(!buttons.length)return;
+  const now=nowFn();
+  for(const button of buttons){
+    const book=S.books.find(b=>b.id===button.dataset.bk);
+    const remaining=bookDeadlineDay(book?.deadline)===null?0:getBookEstimate(book,now).target.remainingToday;
+    button.classList.toggle('needs-study',remaining>0);
+    if(remaining>0)button.setAttribute('aria-label',`${book.name}、今日あと${remaining}問`);
+    else button.removeAttribute('aria-label');
+  }
 }
 const curBook=()=>S.books.find(b=>b.id===S.cur)||S.books[0];
 /* アプリ制限。端末の予算はAndroid側を正とし、HTMLの復元では書き換えない。 */
@@ -851,7 +880,11 @@ function limitSessionHint(a){
   const millis=done===5?bonus:limitPartialRewardsAvailable()?done*45000:0;
   return `<div class="limit-session-hint"><b>記録で ＋${limitRewardTime(millis)}</b></div>`;
 }
-window.addEventListener('study-native-resume',()=>{if(tab==='limits'){limitRead();render()}limitInitialise()});
+window.addEventListener('study-native-resume',()=>{
+  if(tab==='limits'){limitRead();render()}
+  else refreshBookGoalButtons();
+  limitInitialise();
+});
 window.addEventListener('study-native-pause',limitSyncWarning);
 
 let bookEstimateOpen=false;
@@ -922,6 +955,7 @@ function renderBookEstimate(){
 }
 function openBookEstimate(){
   if(bookEstimateOpen||spinning)return;
+  refreshBookGoalButtons();
   bookEstimateOpen=true;renderBookEstimate();
   pOpen($('#book-estimate-dialog'));pushOv();$('#book-estimate-close').focus({preventScroll:true});
 }
@@ -1197,6 +1231,7 @@ function saveBookDeadline(value){
   $('#book-deadline').value=value;
   $('#book-deadline-summary').textContent=value||'未設定';
   $('#book-deadline-clear').disabled=!value;
+  refreshBookGoalButtons();
   toast(value?'締切日を保存しました':'締切日を解除しました');
 }
 function vSet(){
@@ -1209,22 +1244,54 @@ function vSet(){
       const name=typeof p.name==='string'?p.name.trim():'';
       return `<option value="${p.date}">${p.date}　${esc(name||'予定')}</option>`;
     }).join('');
-  return (limitNativeAvailable()?'<div class="card"><button id="launcher-settings" class="w" style="margin:0">学習用ランチャーの設定</button></div>':'')+`<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
-  +`<details class="card"><summary><span>締切日</span><span class="mu sn" id="book-deadline-summary">${deadline||'未設定'}</span></summary>
-    <form id="book-deadline-form">
-      <input type="date" id="book-deadline" aria-label="締切日" min="0100-01-01" max="9999-12-31" value="${deadline}">
-      <select id="book-deadline-plan" aria-label="予定から選ぶ" style="margin-top:8px"${deadlineOptions?'':' disabled'}>
-        <option value="">${deadlineOptions?'予定から選ぶ':'予定なし'}</option>${deadlineOptions}
-      </select>
-      <div class="row" style="margin-top:8px">
-        <button type="submit" class="pri w" style="margin:0">保存</button>
-        <button type="button" id="book-deadline-clear" class="w" style="margin:0"${deadline?'':' disabled'}>解除</button>
+  const launcherRow=limitNativeAvailable()
+    ?'<button class="settings-row settings-link" id="launcher-settings">ランチャー設定</button>'
+    :'';
+  return `<section class="card settings-group" aria-labelledby="settings-book-title">
+    <h2 class="settings-title" id="settings-book-title">教材</h2>
+    <details class="settings-row">
+      <summary><span>教材名</span><span class="settings-value">${esc(b.name)}</span></summary>
+      <div class="settings-body">
+        <input id="bname" aria-label="教材名" value="${esc(b.name)}" maxlength="30">
+        <button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p>
       </div>
-    </form></details>`
-  +setupForm('各部の問題数（'+esc(b.name)+'）')
-  +vPartGroups(b)
-  +`<details class="card"${bkArm?' open':''}><summary><span>🗑 この教材を削除</span></summary><p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p><button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button></details>`
-  +`<details class="card"><summary><span>💾 バックアップ（全教材）</span></summary><textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea><div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div><p class="mu" id="bmsg"></p></details><div class="card"><label>🔧 サイト管理</label><button id="adm" class="w">管理ページを開く</button></div>`;
+    </details>
+    <details class="settings-row">
+      <summary><span>締切日</span><span class="settings-value" id="book-deadline-summary">${deadline||'未設定'}</span></summary>
+      <form class="settings-body" id="book-deadline-form">
+        <input type="date" id="book-deadline" aria-label="締切日" min="0100-01-01" max="9999-12-31" value="${deadline}">
+        <select id="book-deadline-plan" aria-label="予定から選ぶ" style="margin-top:8px"${deadlineOptions?'':' disabled'}>
+          <option value="">${deadlineOptions?'予定から選ぶ':'予定なし'}</option>${deadlineOptions}
+        </select>
+        <div class="row" style="margin-top:8px">
+          <button type="submit" class="pri w" style="margin:0">保存</button>
+          <button type="button" id="book-deadline-clear" class="w" style="margin:0"${deadline?'':' disabled'}>解除</button>
+        </div>
+      </form>
+    </details>
+    ${setupForm()}
+    ${vPartGroups(b)}
+    <details class="settings-row"${bkArm?' open':''}>
+      <summary>この教材を削除</summary>
+      <div class="settings-body">
+        <p class="mu">「${esc(b.name)}」の記録・評価がすべて消えます。${many?'':'（教材が1つだけのときは削除できません）'}</p>
+        <button id="bdel" class="ghost w"${many?'':' disabled'}${bkArm?' style="color:var(--D);border-color:var(--D)"':''}>${bkArm?'もう一度押すと削除します':'削除する'}</button>
+      </div>
+    </details>
+  </section>
+  <section class="card settings-group" aria-labelledby="settings-app-title">
+    <h2 class="settings-title" id="settings-app-title">アプリ</h2>
+    ${launcherRow}
+    <details class="settings-row">
+      <summary>バックアップ（全教材）</summary>
+      <div class="settings-body">
+        <textarea id="bk" rows="3" placeholder="復元するときはここにバックアップを貼り付け"></textarea>
+        <div class="row" style="margin-top:8px"><button id="bcp" class="w" style="margin:0">コピー</button><button id="brs" class="w" style="margin:0">復元</button></div>
+        <p class="mu" id="bmsg"></p>
+      </div>
+    </details>
+    <button class="settings-row settings-link" id="adm">サイト管理</button>
+  </section>`;
 }
 const OPS='+−×÷^',KEYS=[['AC','AC','ac'],['⌫','BS','op'],['%','%','op'],['÷','÷','op'],['7'],['8'],['9'],['×','×','op'],['4'],['5'],['6'],['−','−','op'],['1'],['2'],['3'],['+','+','op'],['(','(','op'],['0'],[')',')','op'],['.'],['xʸ','^','op','累乗（xのy乗）'],['×10ˣ','EE','op','10のべき乗を入力']];
 const hist=()=>{if(!S.calc||!Array.isArray(S.calc.hist))S.calc={hist:[]};return S.calc.hist};
@@ -2181,6 +2248,7 @@ function render(){
   document.querySelectorAll('#drw button[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   const tt=$('#ttl');if(tt){tt.textContent=TTL[tab]||'';tt.disabled=tab!=='roulette';tt.setAttribute('aria-label',tab==='roulette'?'円のルーレットを開く':TTL[tab]||'')}
   $('#app').innerHTML=(tab==='calc'||tab==='plan'||tab==='memo'||tab==='limits'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,plan:vPlan,memo:vMemo,limits:vLimits,set:vSet}[tab]();
+  refreshBookGoalButtons();
   if(tab==='calc')cUp();
   if(calendarOpen)renderCalendar();
   if(bookEstimateOpen)renderBookEstimate();
@@ -2262,7 +2330,13 @@ function delOne(id){
   sMsg=lab(id)+' を未修に戻しました';save();rdOne();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ip'||e.target.id==='iq'))schOne()});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){flushNote()}else{if(tab==='plan')render();if(bookEstimateOpen)renderBookEstimate();maybeGreet()}});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){flushNote();return;}
+  if(tab==='plan')render();
+  else refreshBookGoalButtons();
+  if(bookEstimateOpen)renderBookEstimate();
+  maybeGreet();
+});
 function say(id,t){const e=$(id);if(e)e.textContent=t}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.id==='mn')openDrawer();else if(b&&b.id==='ttl')wheelOpen()});
 $('#app').addEventListener('click',e=>{
