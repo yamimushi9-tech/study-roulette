@@ -240,6 +240,8 @@ details.pf>summary{cursor:pointer;font-weight:700}
 #book-estimate-secondary{font-size:18px;line-height:1.4;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 #book-estimate-secondary b{font-size:28px;margin:0 3px}
 #book-estimate-secondary .be-unavailable{font-size:16px}
+.be-target-today{font-size:18px;color:var(--tx)}
+.be-target-amount{font-size:28px;color:var(--D);font-variant-numeric:tabular-nums}
 #book-estimate-progress{margin:20px 0 0;font-size:14px;font-weight:700}
 .be-help{margin:12px 0 0;text-align:left;color:var(--mu);font-size:12px;line-height:1.6}
 @media(prefers-reduced-motion:reduce){#book-estimate-dialog,#book-estimate-dialog .mbox{transition:none}}
@@ -359,13 +361,17 @@ details.pf>summary{cursor:pointer;font-weight:700}
   <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="book-estimate-title" aria-describedby="book-estimate-name">
     <div class="mh"><b id="book-estimate-title">📘 教材の完了予測</b><button type="button" id="book-estimate-close" class="ghost" aria-label="完了予測を閉じる">✕</button></div>
     <p id="book-estimate-name"></p>
-    <p class="be-label" id="book-estimate-caption">終了まで<br><span class="mu">直近3日のペース</span></p>
+    <p class="be-label">終了まで<br><span class="mu">直近3日のペース</span></p>
     <div class="be-primary" id="book-estimate-primary"></div>
     <p class="be-basis" id="book-estimate-three"></p>
     <div class="be-secondary" id="book-estimate-recent">
       <p class="be-label">直近7日のペース</p>
       <div id="book-estimate-secondary"></div>
       <p class="be-basis" id="book-estimate-seven"></p>
+    </div>
+    <div class="be-secondary" id="book-estimate-target" hidden>
+      <p class="be-label" id="book-estimate-deadline"></p>
+      <div class="be-target-today" id="book-estimate-today"></div>
     </div>
     <p id="book-estimate-progress"></p>
     
@@ -641,7 +647,12 @@ const cdList=()=>Object.keys(S.rated).map(Number).filter(n=>S.rated[n]==='C'||S.
 const chip=(n,g,d)=>`<span class="chip c${g}"${d?` data-id="${n}"`:''}>${sh(n)}${g?' '+g:''}</span>`;
 
 function setupForm(t){
-  return `<div class="card"><label>${t}</label><input id="tot" value="${esc(specStr(curBook()))}"><p class="mu">問題数：8,4,6 ／ 範囲：1-8,9-20<br>${S.parts.length}部・${total()}問</p><button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p></div>`;
+  return `<details class="card" id="book-parts-settings">
+    <summary>${t}</summary>
+    <input id="tot" aria-label="各部の問題数" value="${esc(specStr(curBook()))}">
+    <p class="mu">問題数：8,4,6 ／ 範囲：1-8,9-20<br>${S.parts.length}部・${total()}問</p>
+    <button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p>
+  </details>`;
 }
 function vRoulette(){
   const pa=pool(1),p=drawPool(),T=total(),done=T-pa.length,sel=selA();
@@ -895,21 +906,19 @@ function renderBookEstimate(){
   const format=value=>value.toLocaleString('ja-JP',{maximumFractionDigits:1});
   const result=stat=>stat.days===null?'<span class="be-unavailable">まだ推定できません</span>':`あと <b>${format(stat.days)}</b><span>日</span>`;
   $('#book-estimate-name').textContent=book.name;
-  $('#book-estimate-progress').textContent=estimate.remaining?`残り${format(estimate.remaining)}問（記録済み${format(estimate.completed)} / ${format(estimate.total)}問）`:`全${format(estimate.total)}問を記録済みです 🎉`;
-  const caption=$('#book-estimate-caption'),primary=$('#book-estimate-primary'),three=$('#book-estimate-three');
-  three.hidden=$('#book-estimate-recent').hidden=!!target;
-  if(target){
-    caption.textContent=fmtN(target.day)+'まで';
-    if(estimate.remaining===0)primary.textContent='完了';
-    else if(target.remainingToday===null)primary.textContent='締切超過';
-    else primary.innerHTML=`今日あと <b>${format(target.remainingToday)}</b><span>問</span>`;
-    return;
-  }
-  caption.innerHTML='終了まで<br><span class="mu">直近3日のペース</span>';
-  primary.innerHTML=result(estimate.three);
-  three.textContent=estimate.three.count?`3日間で${format(estimate.three.count)}問・1日平均${format(estimate.three.average)}問`:'直近3日の記録なし';
+  $('#book-estimate-primary').innerHTML=result(estimate.three);
+  $('#book-estimate-three').textContent=estimate.three.count?`3日間で${format(estimate.three.count)}問・1日平均${format(estimate.three.average)}問`:'直近3日の記録なし';
   $('#book-estimate-secondary').innerHTML=result(estimate.seven);
   $('#book-estimate-seven').textContent=estimate.seven.count?`7日間で${format(estimate.seven.count)}問・1日平均${format(estimate.seven.average)}問`:'直近7日の記録なし';
+  $('#book-estimate-progress').textContent=estimate.remaining?`残り${format(estimate.remaining)}問（記録済み${format(estimate.completed)} / ${format(estimate.total)}問）`:`全${format(estimate.total)}問を記録済みです 🎉`;
+  $('#book-estimate-target').hidden=!target;
+  if(target){
+    $('#book-estimate-deadline').textContent=fmtN(target.day)+'まで';
+    const today=$('#book-estimate-today');
+    if(estimate.remaining===0)today.textContent='完了';
+    else if(target.remainingToday===null)today.textContent='締切超過';
+    else today.innerHTML=`今日あと <strong class="be-target-amount">${format(target.remainingToday)}問</strong>`;
+  }
 }
 function openBookEstimate(){
   if(bookEstimateOpen||spinning)return;
@@ -1193,10 +1202,20 @@ function saveBookDeadline(value){
 function vSet(){
   const b=curBook(),many=S.books.length>1;
   const deadline=bookDeadlineDay(b.deadline)===null?'':b.deadline;
+  const deadlineOptions=plansList()
+    .filter(p=>bookDeadlineDay(p.date)!==null)
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .map(p=>{
+      const name=typeof p.name==='string'?p.name.trim():'';
+      return `<option value="${p.date}">${p.date}　${esc(name||'予定')}</option>`;
+    }).join('');
   return (limitNativeAvailable()?'<div class="card"><button id="launcher-settings" class="w" style="margin:0">学習用ランチャーの設定</button></div>':'')+`<details class="card"><summary><span>📕 教材名</span><span class="mu sn">${esc(b.name)}</span></summary><input id="bname" value="${esc(b.name)}" maxlength="30"><button id="bren" class="pri w">名前を保存</button><p class="mu" id="rmsg"></p></details>`
   +`<details class="card"><summary><span>締切日</span><span class="mu sn" id="book-deadline-summary">${deadline||'未設定'}</span></summary>
     <form id="book-deadline-form">
       <input type="date" id="book-deadline" aria-label="締切日" min="0100-01-01" max="9999-12-31" value="${deadline}">
+      <select id="book-deadline-plan" aria-label="予定から選ぶ" style="margin-top:8px"${deadlineOptions?'':' disabled'}>
+        <option value="">${deadlineOptions?'予定から選ぶ':'予定なし'}</option>${deadlineOptions}
+      </select>
       <div class="row" style="margin-top:8px">
         <button type="submit" class="pri w" style="margin:0">保存</button>
         <button type="button" id="book-deadline-clear" class="w" style="margin:0"${deadline?'':' disabled'}>解除</button>
@@ -2324,6 +2343,8 @@ $('#app').addEventListener('click',e=>{
     if(Array.isArray(cb.partGroups))cb.partGroups=partGroupsFor(cb);
     partGroupDrafts.delete(cb.id);
     save();render();
+    const partsSettings=$('#book-parts-settings');
+    if(partsSettings)partsSettings.open=true;
     const m=$('#smsg');if(m){m.textContent='✅ 保存しました（'+P.length+'部・計'+P.reduce((x,y)=>x+y,0)+'問'+(sp.st?'・通し番号':'')+'）';m.style.color='var(--A)'}
     toast('✅ 保存しました');
   }
@@ -2340,6 +2361,11 @@ $('#app').addEventListener('submit',e=>{
   if(e.target.id!=='book-deadline-form')return;
   e.preventDefault();
   saveBookDeadline($('#book-deadline').value);
+});
+$('#app').addEventListener('change',e=>{
+  if(e.target.id!=='book-deadline-plan'||!e.target.value)return;
+  $('#book-deadline').value=e.target.value;
+  e.target.value='';
 });
 $('#app').addEventListener('input',inputPartGroup);
 $('#app').addEventListener('toggle',e=>{if(e.target.id==='part-group-settings'&&e.target.dataset.pgBook===curBook().id)partGroupDraft().open=e.target.open;},true);
