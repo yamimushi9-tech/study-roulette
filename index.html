@@ -242,14 +242,16 @@ details.pf>summary{cursor:pointer;font-weight:700}
 .rw input[type="range"]::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(to right,var(--pri) 0%,var(--pri) var(--rw-fill,50%),var(--bd) var(--rw-fill,50%),var(--bd) 100%)}
 .rw input[type="range"]::-moz-range-thumb{box-sizing:border-box;width:26px;height:26px;border:3px solid #fff;border-radius:50%;background:var(--pri);box-shadow:0 0 0 2px var(--pri),0 2px 6px rgba(0,0,0,.3)}
 .rw input:disabled{opacity:.4}
+.rw[data-group] input[type="range"],.rw[data-group] output{display:none}
 .rwinfo{display:block;margin:0;color:var(--mu);font-size:12px;line-height:1.4}
 .part-group-title{margin:4px 0 0;font-size:13px;font-weight:700;color:var(--mu);overflow-wrap:anywhere}
 .sq>.part-group-title{grid-column:1/-1}
-.part-group-button{display:none}
-[data-param-mode="weight"] .part-group-button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:6px 10px;border-radius:9px;text-align:left}
+.part-group-slider{display:none}
+[data-param-mode="weight"] .part-group-slider{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:6px 10px;border:1px solid var(--bd);border-radius:9px;color:var(--tx);background:linear-gradient(to right,rgba(96,126,248,.34) var(--group-fill,0%),transparent var(--group-fill,0%));touch-action:pan-y pinch-zoom;user-select:none;cursor:ew-resize}
 [data-param-mode="weight"] .part-group-label{display:none}
-.part-group-button[aria-pressed="true"]{border-color:var(--pri);color:var(--pri)}
-.part-group-button small{flex-shrink:0;font-size:11px;color:var(--mu);font-variant-numeric:tabular-nums}
+.part-group-slider[data-active]{border-color:var(--pri)}
+.part-group-slider:focus-visible{outline:2px solid var(--pri);outline-offset:-3px}
+.part-group-slider small{flex-shrink:0;font-size:11px;font-variant-numeric:tabular-nums}
 .pg-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;padding:12px 0;border-top:1px solid var(--bd)}
 .pg-row>input{grid-column:1;min-width:0}
 .pg-row>button{grid-column:2;grid-row:1/3;align-self:start;width:44px;height:44px;padding:0;font-size:22px}
@@ -620,7 +622,7 @@ function groupedPartMarkup(draw,book=curBook()){
     const group=groups.find(g=>i+1>=g.from&&i+1<=g.to)||null;
     if(group!==previous){
       const title=esc(group?group.title:'その他');
-      const heading=group?`<span class="part-group-label">${title}</span><button type="button" class="part-group-button" data-param-group="${group.from}" aria-pressed="false"><span>${title}</span><small></small></button>`:title;
+      const heading=group?`<span class="part-group-label">${title}</span><div class="part-group-slider" data-param-group="${group.from}" role="slider" tabindex="0" aria-label="${title}の出やすさ" aria-valuemin="0" aria-valuemax="100"><span>${title}</span><small></small></div>`:title;
       markup+=`<div class="part-group-title" role="heading" aria-level="3">${heading}</div>`;
       previous=group;
     }
@@ -1062,6 +1064,12 @@ function paramTarget(root,book,groups=partGroupsFor(book)){
 function commonParamWeight(info){
   return info.every(p=>p.weight===info[0].weight)?info[0].weight:null;
 }
+function showGroupWeight(slider,weight){
+  slider.style.setProperty('--group-fill',(weight??0)+'%');
+  slider.querySelector('small').textContent=weight??'混在';
+  slider.setAttribute('aria-valuenow',weight??50);
+  slider.setAttribute('aria-valuetext',weight===null?'部ごとに異なる':'出やすさ '+weight);
+}
 function updatePartParams(root,book,selected,remaining){
   const weightMode=root.dataset.paramMode==='weight';
   if(!+root.dataset.editPart)root.dataset.editPart=String(selected.values().next().value||1);
@@ -1085,10 +1093,12 @@ function updatePartParams(root,book,selected,remaining){
   editor.hidden=!weightMode;
   if(weightMode){
     const groups=partGroupsFor(book);
-    for(const button of root.querySelectorAll('[data-param-group]')){
-      const group=groups.find(g=>g.from===+button.dataset.paramGroup);
-      button.setAttribute('aria-pressed',String(group.from===+root.dataset.editGroup));
-      button.querySelector('small').textContent=commonParamWeight(info.slice(group.from-1,group.to))??'混在';
+    const editGroup=+root.dataset.editGroup;
+    editor.toggleAttribute('data-group',Boolean(editGroup));
+    for(const slider of root.querySelectorAll('[data-param-group]')){
+      const group=groups.find(g=>g.from===+slider.dataset.paramGroup);
+      slider.toggleAttribute('data-active',group.from===editGroup);
+      showGroupWeight(slider,commonParamWeight(info.slice(group.from-1,group.to)));
     }
     const {title,parts}=paramTarget(root,book,groups),chosen=parts.map(n=>info[n-1]);
     const on=chosen.filter(p=>p.on),left=on.reduce((sum,p)=>sum+p.left,0),mass=on.reduce((sum,p)=>sum+p.left*p.weight,0);
@@ -1099,7 +1109,7 @@ function updatePartParams(root,book,selected,remaining){
     order.setAttribute('aria-label',title+'を先頭から');
     order.setAttribute('aria-pressed',first);
     const input=editor.querySelector('[data-param-weight]'),position=String(weight??50);
-    input.disabled=!+root.dataset.editGroup&&!on.length;
+    input.disabled=Boolean(editGroup)||!on.length;
     if(input.value!==position)input.value=position;
     input.style.setProperty('--rw-fill',position+'%');
     input.setAttribute('aria-valuetext',weight===null?'部ごとに異なる':'出やすさ '+weight);
@@ -1124,18 +1134,83 @@ function changePartParam(book,kind,parts,value){
   return true;
 }
 function bindPartParams(root,bookFor,refresh,edit){
+  const groupSlider='[data-param-group]';
+  const selectGroup=slider=>{
+    if(root.dataset.editGroup===slider.dataset.paramGroup)return;
+    root.dataset.editGroup=slider.dataset.paramGroup;
+    refresh();
+  };
+  const editGroupWeight=(slider,value)=>{
+    const book=bookFor();if(!book||root.dataset.paramMode!=='weight')return;
+    selectGroup(slider);
+    const {parts}=paramTarget(root,book);
+    if(parts.some(n=>partWeight(n,book)!==value))edit('weight',parts,value);
+    else refresh();
+  };
   root.addEventListener('click',e=>{
+    const group=e.target.closest(groupSlider);
+    if(group&&root.dataset.paramMode==='weight'){selectGroup(group);return;}
     const button=e.target.closest('button');if(!button)return;
-    const {paramView,paramPart,paramGroup,paramFirst}=button.dataset;
+    const {paramView,paramPart,paramFirst}=button.dataset;
     if(paramView){root.dataset.paramMode=paramView;refresh();}
     else if(paramPart&&root.dataset.paramMode==='range')edit('part',+paramPart);
-    else if(paramPart||paramGroup){
-      if(root.dataset.paramMode!=='weight')return;
-      if(paramPart)root.dataset.editPart=paramPart;
-      root.dataset.editGroup=paramGroup||'';
+    else if(paramPart){
+      root.dataset.editPart=paramPart;
+      root.dataset.editGroup='';
       refresh();
     }else if(paramFirst!==undefined){
       const book=bookFor();if(book&&root.dataset.paramMode==='weight')edit('first',paramTarget(root,book).parts);
+    }
+  });
+  // 縦に指を動かすと一覧をスクロールし、横ドラッグだけで値を変更する。
+  let drag=null;
+  root.addEventListener('pointerdown',e=>{
+    const slider=e.target.closest(groupSlider);
+    if(!slider||!e.isPrimary||e.button!==0||root.dataset.paramMode!=='weight')return;
+    drag={slider,id:e.pointerId,x:e.clientX,y:e.clientY,value:null};
+    slider.setPointerCapture(e.pointerId);
+  });
+  const position=(slider,x)=>{
+    const rect=slider.getBoundingClientRect();
+    return Math.max(0,Math.min(100,Math.round((x-rect.left)/rect.width*100)));
+  };
+  root.addEventListener('pointermove',e=>{
+    if(drag?.id!==e.pointerId)return;
+    if(drag.value===null){
+      const dx=Math.abs(e.clientX-drag.x),dy=Math.abs(e.clientY-drag.y);
+      if(dx<6&&dy<6)return;
+      if(dy>dx){drag=null;return;}
+      selectGroup(drag.slider);
+    }
+    const value=position(drag.slider,e.clientX);
+    if(drag.value!==value){
+      drag.value=value;
+      showGroupWeight(drag.slider,value);
+    }
+  });
+  root.addEventListener('pointerup',e=>{
+    if(drag?.id!==e.pointerId)return;
+    const {slider,value}=drag;
+    drag=null;
+    if(value!==null)editGroupWeight(slider,position(slider,e.clientX));
+  });
+  const cancelDrag=e=>{
+    if(drag?.id!==e.pointerId)return;
+    const changed=drag.value!==null;
+    drag=null;
+    if(changed)refresh();
+  };
+  root.addEventListener('pointercancel',cancelDrag);
+  root.addEventListener('lostpointercapture',cancelDrag);
+  root.addEventListener('keydown',e=>{
+    const slider=e.target.closest(groupSlider);
+    if(!slider||root.dataset.paramMode!=='weight')return;
+    const weight=+slider.getAttribute('aria-valuenow');
+    const values={ArrowLeft:weight-1,ArrowDown:weight-1,ArrowRight:weight+1,ArrowUp:weight+1,Home:0,End:100};
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();selectGroup(slider);}
+    else if(Object.hasOwn(values,e.key)){
+      e.preventDefault();
+      editGroupWeight(slider,Math.max(0,Math.min(100,values[e.key])));
     }
   });
   const slider='input[data-param-weight]';
