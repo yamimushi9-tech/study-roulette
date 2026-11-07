@@ -1059,7 +1059,7 @@ function paramTarget(root,book,groups=partGroupsFor(book)){
   const group=groups.find(g=>g.from===+root.dataset.editGroup);
   if(group)return {title:group.title,parts:book.parts.slice(group.from-1,group.to).map((_,i)=>group.from+i)};
   const n=+root.dataset.editPart;
-  return {title:`第${n}部`,parts:[n]};
+  return n?{title:`第${n}部`,parts:[n]}:null;
 }
 function commonParamWeight(info){
   return info.every(p=>p.weight===info[0].weight)?info[0].weight:null;
@@ -1072,7 +1072,9 @@ function showGroupWeight(slider,weight){
 }
 function updatePartParams(root,book,selected,remaining){
   const weightMode=root.dataset.paramMode==='weight';
-  if(!+root.dataset.editPart)root.dataset.editPart=String(selected.values().next().value||1);
+  const groups=weightMode?partGroupsFor(book):[];
+  const target=weightMode?paramTarget(root,book,groups):null;
+  const editGroup=+root.dataset.editGroup;
   const info=book.parts.map((_,i)=>({left:remaining[i],weight:partWeight(i+1,book),on:selected.has(i+1),first:partFromStart(i+1,book)}));
   let totalWeight=0,eligible=0;
   for(const p of info){
@@ -1082,7 +1084,7 @@ function updatePartParams(root,book,selected,remaining){
   for(const button of root.querySelectorAll('[data-param-view]'))button.setAttribute('aria-pressed',String(button.dataset.paramView===(weightMode?'weight':'range')));
   for(const button of root.querySelectorAll('[data-param-part]')){
     const n=+button.dataset.paramPart,p=info[n-1];
-    const on=weightMode?!+root.dataset.editGroup&&n===+root.dataset.editPart:p.on;
+    const on=weightMode?!editGroup&&n===+root.dataset.editPart:p.on;
     button.classList.toggle('on',on);
     button.classList.toggle('out',!p.on);
     button.setAttribute('aria-pressed',String(on));
@@ -1090,17 +1092,17 @@ function updatePartParams(root,book,selected,remaining){
     button.querySelector('small').textContent=weightMode?String(p.weight):'残り'+p.left;
   }
   const editor=root.querySelector('.rw');
-  editor.hidden=!weightMode;
+  editor.hidden=!target;
   if(weightMode){
-    const groups=partGroupsFor(book);
-    const editGroup=+root.dataset.editGroup;
-    editor.toggleAttribute('data-group',Boolean(editGroup));
     for(const slider of root.querySelectorAll('[data-param-group]')){
       const group=groups.find(g=>g.from===+slider.dataset.paramGroup);
       slider.toggleAttribute('data-active',group.from===editGroup);
       showGroupWeight(slider,commonParamWeight(info.slice(group.from-1,group.to)));
     }
-    const {title,parts}=paramTarget(root,book,groups),chosen=parts.map(n=>info[n-1]);
+  }
+  if(target){
+    editor.toggleAttribute('data-group',Boolean(editGroup));
+    const {title,parts}=target,chosen=parts.map(n=>info[n-1]);
     const on=chosen.filter(p=>p.on),left=on.reduce((sum,p)=>sum+p.left,0),mass=on.reduce((sum,p)=>sum+p.left*p.weight,0);
     const weight=commonParamWeight(chosen),first=chosen.every(p=>p.first)?'true':chosen.some(p=>p.first)?'mixed':'false';
     editor.querySelector('label').textContent=title;
@@ -1160,7 +1162,8 @@ function bindPartParams(root,bookFor,refresh,edit){
       root.dataset.editGroup='';
       refresh();
     }else if(paramFirst!==undefined){
-      const book=bookFor();if(book&&root.dataset.paramMode==='weight')edit('first',paramTarget(root,book).parts);
+      const book=bookFor(),target=book&&root.dataset.paramMode==='weight'&&paramTarget(root,book);
+      if(target)edit('first',target.parts);
     }
   });
   // 縦に指を動かすと一覧をスクロールし、横ドラッグだけで値を変更する。
@@ -1219,8 +1222,8 @@ function bindPartParams(root,bookFor,refresh,edit){
   });
   const slider='input[data-param-weight]';
   const changeWeight=(input,value)=>{
-    const book=bookFor();
-    if(book&&root.dataset.paramMode==='weight'&&!input.disabled)edit('weight',paramTarget(root,book).parts,value);
+    const book=bookFor(),target=book&&root.dataset.paramMode==='weight'&&!input.disabled&&paramTarget(root,book);
+    if(target)edit('weight',target.parts,value);
   };
   root.addEventListener('input',e=>{if(e.target.matches(slider))changeWeight(e.target,+e.target.value)});
   // 指やマウスで調整を終えたら、中央付近は標準の50に吸着。キー操作は1刻み。
