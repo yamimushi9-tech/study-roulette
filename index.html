@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1 study-wheel-shared-params-v1 study-part-groups-v1 study-calendar-cache-v1 study-home-choice-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1 study-wheel-shared-params-v1 study-part-groups-v1 study-calendar-cache-v1 study-home-choice-v1 study-param-swipe-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -206,7 +206,7 @@ details.card[open]>summary{margin-bottom:10px}
 #rx{min-width:44px;min-height:44px}
 .rg{padding:2px 10px;font-size:16px;border-radius:999px;background:transparent;color:var(--mu)}
 .rg.on{background:var(--pri);border-color:var(--pri);color:var(--pt)}
-.param-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding-top:100px}
+.param-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding-top:100px;touch-action:pan-y pinch-zoom}
 .param-toolbar{position:sticky;top:0;z-index:1;background:var(--card)}
 .param-head-actions{display:flex;flex:none;align-items:center;gap:4px}
 .param-head-actions .param-reset{min-height:44px;padding:0 8px;border:0;background:transparent;font-size:12px;white-space:nowrap}
@@ -1176,6 +1176,27 @@ function changePartParam(book,kind,parts,value){
 function bindPartParams(root,bookFor,refresh,edit){
   const groupSlider='[data-param-group]';
   const groupWeightStep=5;
+  let tabSwipe=null,suppressSwipeClick=false;
+  root.addEventListener('pointerdown',e=>{
+    if(!e.isPrimary)return;
+    suppressSwipeClick=false;
+    tabSwipe=null;
+    if(e.pointerType!=='touch'||!e.target.closest('.param-meta,.param-toolbar,.sq')||e.target.closest(groupSlider))return;
+    tabSwipe={id:e.pointerId,x:e.clientX,y:e.clientY};
+  });
+  root.addEventListener('pointerup',e=>{
+    if(tabSwipe?.id!==e.pointerId)return;
+    const dx=e.clientX-tabSwipe.x,dy=e.clientY-tabSwipe.y;
+    tabSwipe=null;
+    if(Math.abs(dx)<42||Math.abs(dx)<Math.abs(dy)*1.5)return;
+    suppressSwipeClick=true;
+    const mode=dx<0?'weight':'range';
+    if(root.dataset.paramMode!==mode){root.dataset.paramMode=mode;refresh();}
+  });
+  root.addEventListener('pointercancel',e=>{if(tabSwipe?.id===e.pointerId)tabSwipe=null});
+  root.addEventListener('click',e=>{
+    if(suppressSwipeClick&&e.detail){e.preventDefault();e.stopImmediatePropagation();suppressSwipeClick=false;}
+  },true);
   const selectGroup=slider=>{
     if(root.dataset.editGroup===slider.dataset.paramGroup)return;
     root.dataset.editGroup=slider.dataset.paramGroup;
