@@ -373,7 +373,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <div class="mh"><b id="mt">＋ 教材を追加</b><button id="mx" class="ghost" aria-label="閉じる">✕</button></div>
     <input id="nn" placeholder="教材名（例: 日本史）" maxlength="30">
     <input id="np" placeholder="各部の問題数（例: 20,20,15）" style="margin-top:8px">
-    <p class="mu" style="margin:8px 0 0">問題数：8,4,6 ／ 通し番号：1-8,9-20</p>
+    <p class="mu" style="margin:8px 0 0">問題数：8,4,6 ／ 通し番号：1-7,8,9-12</p>
     <p class="mu" id="amsg" style="min-height:20px;margin:6px 0 0"></p>
     <button id="nadd" class="pri w">追加して切り替える</button>
   </div>
@@ -721,20 +721,21 @@ const lab=id=>stA()?`第${Math.floor(id/1000)}部 ${num(id)}番`:`第${Math.floo
 const notation=()=>stA()?'通し番号':'部-問';
 const specStr=b=>Array.isArray(b.st)&&b.st.length===b.parts.length?b.parts.map((c,i)=>b.st[i]+'-'+(b.st[i]+c-1)).join(','):b.parts.join(',');
 function parseSpec(v){
-  const E1='各部の問題数を、カンマ区切りの数（例: 8,4,6）か、範囲（例: 1-8,9-20）で入力してください';
+  const E1='問題数（例: 8,4,6）か通し番号（例: 1-7,8,9-12）をカンマ区切りで入力してください';
   const t=String(v).normalize('NFKC').split(/[,、，\s]+/).filter(x=>x);
   if(!t.length)return{err:E1};
-  const R=/^(\d+)[-~〜ー–—−‐‑](\d+)$/,rg=t.filter(x=>R.test(x)).length;
-  if(!rg){
-    const P=t.map(x=>/^\d+$/.test(x)?parseInt(x,10):NaN);
+  const entries=t.map(x=>/^(\d+)(?:[-~〜ー–—−‐‑](\d+))?$/.exec(x));
+  if(entries.some(m=>!m))return{err:E1};
+  if(!entries.some(m=>m[2]!==undefined)){
+    const P=entries.map(m=>+m[1]);
     if(!P.every(x=>x>=1))return{err:E1};
     if(P.some(x=>x>999))return{err:'1つの部は999問までです'};
     return{parts:P,st:null};
   }
-  if(rg!==t.length)return{err:'数と範囲を混ぜずに、どちらかにそろえてください（例: 8,4,6 または 1-8,9-20）'};
   const parts=[],st=[];let prev=0;
-  for(const x of t){
-    const m=R.exec(x),a=+m[1],b=+m[2];
+  for(const m of entries){
+    const a=+m[1],b=+(m[2]??m[1]);
+    if(!Number.isSafeInteger(a)||!Number.isSafeInteger(b))return{err:E1};
     if(a<1||b<a)return{err:'範囲は「小さい番号-大きい番号」で入力してください（例: 1-8）'};
     if(a<=prev)return{err:'範囲は小さい番号から順に、重ならないように入力してください'};
     if(b-a+1>999)return{err:'1つの部は999問までです'};
@@ -752,7 +753,7 @@ function setupForm(){
     <summary><span>各部の問題数</span><span class="settings-value">${S.parts.length}部・${total()}問</span></summary>
     <div class="settings-body">
       <input id="tot" aria-label="各部の問題数" value="${esc(specStr(curBook()))}">
-      <p class="mu">問題数：8,4,6 ／ 範囲：1-8,9-20</p>
+      <p class="mu">問題数：8,4,6 ／ 通し番号：1-7,8,9-12</p>
       <button id="stot" class="pri w">保存</button><p class="mu" id="smsg"></p>
     </div>
   </details>`;
