@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1 study-wheel-shared-params-v1 study-part-groups-v1 study-calendar-cache-v1 study-home-choice-v1 study-param-swipe-v1">
+<meta name="study-native-features" content="study-app-limits-v1 study-bridge-nonblocking-v3 study-launcher-v1 study-launcher-shared-v2 study-launcher-usage-v3 study-launcher-partial-rewards-v1 study-launcher-memo-page-v1 study-memo-title-v1 study-circular-roulette-v1 study-wheel-shared-params-v1 study-part-groups-v1 study-calendar-cache-v1 study-home-choice-v1 study-param-swipe-v1 study-book-draw-reward-v1">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.json">
 <title>学習ルーレット</title>
@@ -24,8 +24,8 @@ nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--
 #drw.show .dp{transform:none}
 .dh{display:flex;justify-content:space-between;align-items:center;margin:0 4px 12px;font-size:17px}
 .dh button{padding:4px 12px}
-.dp button[data-tab]{display:flex;align-items:center;gap:14px;width:100%;text-align:left;font-size:16px;font-weight:600;padding:14px;margin-bottom:6px;border:none;background:transparent}
-.dp button[data-tab] span{font-size:20px;width:26px;text-align:center}
+.dp button[data-tab],.dp #launcher-home{display:flex;align-items:center;gap:14px;width:100%;text-align:left;font-size:16px;font-weight:600;padding:14px;margin-bottom:6px;border:none;background:transparent}
+.dp button[data-tab] span,.dp #launcher-home span{font-size:20px;width:26px;text-align:center}
 .dp button[data-tab].on{background:var(--pri);color:var(--pt)}
 .mg{display:flex;gap:10px;align-items:flex-start}
 .mc{flex:1;min-width:0}
@@ -54,6 +54,8 @@ button:disabled{opacity:.4}
 .bar i{display:block;height:100%;background:var(--pri)}
 .slots{display:grid;gap:8px;margin:14px 0}
 .slot{height:56px;display:grid;place-items:center;font-size:22px;font-weight:800;background:var(--card);border:2px solid var(--bd);border-radius:14px}
+.slots.many{grid-template-columns:repeat(3,minmax(0,1fr));max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.slots.many .slot{height:44px;padding:2px;font-size:13px;text-align:center;overflow-wrap:anywhere}
 .slot.spin{border-color:var(--pri);animation:p .15s infinite alternate}
 @keyframes p{to{transform:translateY(-4px)}}
 .timer{font-size:48px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;margin-bottom:8px}
@@ -278,11 +280,19 @@ details.pf>summary{cursor:pointer;font-weight:700}
 #pg-message:empty{display:none}
 #msg:empty{display:none}
 
-#book-estimate-dialog,#plan-edit-dialog{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.55);opacity:0;transition:opacity .18s}
-#book-estimate-dialog[hidden],#plan-edit-dialog[hidden]{display:none}
-#book-estimate-dialog.show,#plan-edit-dialog.show{opacity:1}
-#book-estimate-dialog.show .mbox,#plan-edit-dialog.show .mbox{transform:none}
-#book-estimate-dialog .mbox,#plan-edit-dialog .mbox{max-height:88vh;max-height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain}
+:is(#book-estimate-dialog,#plan-edit-dialog,#book-draw-dialog){position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.55);opacity:0;transition:opacity .18s}
+:is(#book-estimate-dialog,#plan-edit-dialog,#book-draw-dialog)[hidden]{display:none}
+:is(#book-estimate-dialog,#plan-edit-dialog,#book-draw-dialog).show{opacity:1}
+:is(#book-estimate-dialog,#plan-edit-dialog,#book-draw-dialog).show .mbox{transform:none}
+:is(#book-estimate-dialog,#plan-edit-dialog,#book-draw-dialog) .mbox{max-height:88vh;max-height:calc(100dvh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain}
+#book-draw-close{min-width:44px;min-height:44px}
+#book-draw-name{margin:-4px 0 8px;overflow-wrap:anywhere}
+.book-draw-field{display:grid;grid-template-columns:minmax(0,1fr) 6em 1em;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--bd)}
+.book-draw-field label{margin:0;font-size:14px}
+.book-draw-field input{min-height:44px;padding:6px 8px;text-align:right}
+#book-draw-form .mu{margin:6px 0}
+#book-draw-message{color:var(--D)}
+#book-draw-message:empty{display:none}
 #book-estimate-dialog .mbox{text-align:center}
 #plan-edit-message{color:var(--D);margin:8px 0 0}
 #plan-edit-message:empty{display:none}
@@ -359,7 +369,7 @@ details.pf>summary{cursor:pointer;font-weight:700}
     <button data-tab="log"><span>📖</span>記録</button>
     <button data-tab="plan"><span>📅</span>予定表</button>
     <button data-tab="memo"><span>📝</span>メモ</button>
-    <button data-tab="limits"><span>⌂</span>学習用ランチャー</button>
+    <button type="button" id="launcher-home"><span aria-hidden="true">⌂</span>学習用ランチャー</button>
     <button data-tab="set"><span>⚙</span>設定</button>
   </div>
 </div>
@@ -427,6 +437,21 @@ details.pf>summary{cursor:pointer;font-weight:700}
       <input id="plan-edit-date" type="date" min="0100-01-01" max="9999-12-31" required>
       <button type="submit" class="pri w">保存</button>
       <p id="plan-edit-message" role="status"></p>
+    </form>
+  </div>
+</div>
+<div id="book-draw-dialog" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="book-draw-title" aria-describedby="book-draw-name">
+    <div class="mh"><b id="book-draw-title">ルーレット・報酬</b><button type="button" id="book-draw-close" class="ghost" aria-label="閉じる">✕</button></div>
+    <p class="mu" id="book-draw-name"></p>
+    <form id="book-draw-form" novalidate>
+      <div class="book-draw-field"><label for="book-draw-count">1回の出題数</label><input id="book-draw-count" type="number" inputmode="numeric" min="1" required><span class="mu">問</span></div>
+      <div class="book-draw-field"><label for="book-draw-per">1問ごとの報酬</label><input id="book-draw-per" type="number" inputmode="decimal" min="0" step="0.01" required><span class="mu">分</span></div>
+      <div class="book-draw-field"><label for="book-draw-full">全問まとめて記録</label><input id="book-draw-full" type="number" inputmode="decimal" min="0" step="0.01" aria-describedby="book-draw-help"><span class="mu">分</span></div>
+      <p class="mu" id="book-draw-help">全問の欄が空欄なら端末の既定値。</p>
+      <p class="mu" id="book-draw-compat" hidden>報酬の変更を反映するにはAPKの更新が必要です。</p>
+      <button type="submit" class="pri w">保存</button>
+      <p class="mu" id="book-draw-message" role="status"></p>
     </form>
   </div>
 </div>
@@ -527,6 +552,14 @@ details.pf>summary{cursor:pointer;font-weight:700}
 
 <script data-study-code>
 const K='studylog_v2',DP=[19,6,5,36,14,32,50,38,37,53,54,36];
+const DEFAULT_DRAW_COUNT=5,MAX_DRAW_COUNT=50,DEFAULT_QUESTION_REWARD=45000,MAX_REWARD_MINUTES=1440;
+function normaliseDrawPrefs(prefs){
+  const count=prefs?.count,perMs=prefs?.perMs,fullMs=prefs?.fullMs;
+  const validMs=value=>Number.isInteger(value)&&value>=0&&value<=MAX_REWARD_MINUTES*60000;
+  return {count:Number.isInteger(count)&&count>=1&&count<=MAX_DRAW_COUNT?count:DEFAULT_DRAW_COUNT,
+    perMs:validMs(perMs)?perMs:DEFAULT_QUESTION_REWARD,fullMs:validMs(fullMs)?fullMs:null};
+}
+const bookDrawPrefs=(book=curBook())=>normaliseDrawPrefs(book.drawPrefs);
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const newBook=(name,parts,st)=>{const b={id:uid(),name:name,parts:parts||DP.slice(),used:[],rated:{},log:[],act:null};if(st)b.st=st;return b};
 const BF=['parts','used','rated','log','act'];
@@ -566,7 +599,7 @@ function mkS(src){
 }
 let S=mkS(),tab='roulette',spinning=false,undoArm=false,delArm=null,sId=0,sC='',sR='',sMsg='',sIn=['',''],cE='',cDone=false,cMsg='',cArm=false,bkArm=false,popId='',tt,logF=false,nowFn=()=>new Date(),plN='',plD='',greetD='',gt;
 const saveUI=()=>{if(window.__studyLauncherMemo)return;try{localStorage.setItem('studylog_ui',JSON.stringify({logF:logF,tab:tab,g:greetD}))}catch(e){}};
-try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;greetD=typeof u.g==='string'?u.g:'';if(['roulette','rev','calc','class','log','plan','memo','limits','set'].includes(u.tab))tab=u.tab}catch(e){}
+try{const u=JSON.parse(localStorage.getItem('studylog_ui')||'{}');logF=!!u.logF;greetD=typeof u.g==='string'?u.g:'';if(['roulette','rev','calc','class','log','plan','memo','set'].includes(u.tab))tab=u.tab}catch(e){}
 try{const j=localStorage.getItem(K);if(j){const d=JSON.parse(j);if(!d.books){try{localStorage.setItem(K+'_pre_multi',j)}catch(e){}}S=mkS(d)}}catch(e){}
 let memoBaseText=JSON.stringify(S.notes||[]);
 function mergeMemoNotes(base,local,remote){
@@ -613,9 +646,9 @@ function partWeight(part,b=curBook()){
 const partFromStart=(part,b=curBook())=>Array.isArray(b.fromStart)&&b.fromStart[part-1]===true;
 const randomProblemOrder=(b=curBook())=>b.randomOrder===true;
 const drawPool=()=>pool().filter(id=>partWeight(Math.floor(id/1000))>0);
-function pickProblems(source,review){
+function pickProblems(source,review,count){
   const remaining=source.slice(),picked=[];
-  while(picked.length<5&&remaining.length){
+  while(picked.length<count&&remaining.length){
     const weights=remaining.map(id=>review?1:partWeight(Math.floor(id/1000)));
     const sum=weights.reduce((a,b)=>a+b,0);
     if(sum<=0)break;
@@ -762,14 +795,18 @@ function vRoulette(){
   const pa=pool(1),p=drawPool(),T=total(),done=T-pa.length,sel=selA();
   let h=`<div class="card"><div class="row"><span>未修 <b>${pa.length}</b> / ${T} 問</span><span class="row"><span class="mu">${Math.round(done/T*100)}% 完了</span><button class="rg${sel?' on':''}" id="rcfg" aria-label="ルーレットの設定">⚙</button></span></div><div class="bar"><i style="width:${done/T*100}%"></i></div>${sel?`<p class="mu" style="margin:8px 0 0">🎛 出題対象: 第${rng(sel)}部（残り ${p.length}問）</p>`:''}</div>`;
   if(S.act)return h+(S.act.rv?'<div class="card c mu">📚 復習中です。「復習」タブで続けてください</div>':vSession())+vOne();
-  h+=`<div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="spin" ${p.length?'':'disabled'}>🎯 ルーレットを回す</button>`;
+  h+=`${drawSlots()}<button class="big" id="spin" ${p.length?'':'disabled'}>🎯 ルーレットを回す</button>`;
   if(!p.length)h+=!pa.length?'<p class="c mu">全問題を一巡しました 🎉</p>':pool().length?'<p class="c mu">出やすさがすべて0です</p>':'<p class="c mu">選択中の部は完了しました</p>';
   return h+vOne();
 }
 function vRev(){
   if(S.act)return S.act.rv?vSession():'<div class="card c mu">🎯 ルーレット中です。完了してから復習できます</div>';
   const cd=cdList(),nd=cd.filter(n=>S.rated[n]==='D').length;
-  return `<div class="card"><label>📚 復習</label><p class="mu">D ${nd}問 ／ C ${cd.length-nd}問</p></div><div class="slots">${'<div class="slot">?</div>'.repeat(5)}</div><button class="big" id="rv" ${cd.length?'':'disabled'}>📚 復習ルーレットを回す</button>${cd.length?'':'<p class="c mu">C・Dなし</p>'}`;
+  return `<div class="card"><label>📚 復習</label><p class="mu">D ${nd}問 ／ C ${cd.length-nd}問</p></div>${drawSlots()}<button class="big" id="rv" ${cd.length?'':'disabled'}>📚 復習ルーレットを回す</button>${cd.length?'':'<p class="c mu">C・Dなし</p>'}`;
+}
+function drawSlots(){
+  const {count}=bookDrawPrefs();
+  return `<div class="slots${count>DEFAULT_DRAW_COUNT?' many':''}">${'<div class="slot">?</div>'.repeat(count)}</div>`;
 }
 function vSession(){
   const a=S.act;
@@ -847,7 +884,7 @@ function limitNativeAvailable(){
   }catch(e){limitConnection={kind:'error',api:0,detail:e.message||'Androidとの接続に失敗しました'};return false}
 }
 function limitPartialRewardsAvailable(){return limitNativeAvailable()&&limitConnection.api>=9}
-function limitRewardTime(millis){const seconds=Math.floor(Math.max(0,Number(millis)||0)/1000);return `${Math.floor(seconds/60)}分${seconds%60}秒`}
+function limitRewardTime(millis){const tenths=Math.floor(Math.max(0,Number(millis)||0)/100);return `${Math.floor(tenths/600)}分${tenths%600/10}秒`}
 function limitConnectionCard(){
   const kind=limitConnection.kind;
   const title=kind==='browser'?'Androidアプリから開いてください':kind==='old'?'APKの更新が必要です':'Androidとの接続を確認できません';
@@ -915,35 +952,63 @@ function limitWarningData(){
     books:recent.map(({book,last})=>{const e=getBookEstimate(book);return {id:book.id,name:book.name,lastStudiedAt:last,remaining:e.remaining,completed:e.completed,total:e.total,pace:e.daily}})};
 }
 function limitSyncWarning(){if(!limitNativeAvailable())return;try{limitCall('restrictionWarning',JSON.stringify(limitWarningData()))}catch(_){}}
-function vLimits(){
-  if(!limitNativeAvailable())return '<section class="card"><b>APKの更新が必要です</b></section>';
-  return '<section class="card"><button id="limit-launcher-open" class="pri w">アプリ内で開く</button><button id="limit-home" class="ghost w">ホームに設定</button></section>';
-}
 function closeLimitDialog(){limitDialogOpen=false}
-function handleLimitClick(b){
-  if(b.id==='limit-launcher-open'){limitSyncWarning();limitCall('previewRestrictionHome');return true}
-  if(b.id==='launcher-settings'){limitSyncWarning();limitCall('openLauncherSettings');return true}
-  if(b.id==='limit-home'){limitCall('openRestrictionHome');return true}
-  return false;
+function openLauncherHome(){
+  if(!window.AndroidApp){toast('Androidアプリから開いてください');return}
+  try{if(!limitCall('openRestrictionHome'))toast('学習用ランチャーを開けませんでした')}
+  catch(error){toast(error.message)}
+}
+function openLauncherSettings(){
+  try{limitSyncWarning();limitCall('openLauncherSettings')}catch(error){toast(error.message)}
+}
+// 既存APKの「制限の設定」は vLimits の存在を確認してから go('limits') を呼ぶ。
+const vLimits=openLauncherSettings;
+const defaultFullRewardMinutes=()=>(limitState?.wallet?.bonusMinutes??limitState?.defaultBonus??5);
+function hasBookRewardPolicy(policy,search=false){
+  return policy.perMs!==DEFAULT_QUESTION_REWARD||!search&&(policy.count!==DEFAULT_DRAW_COUNT||policy.fullMs!==null);
+}
+function limitRegisterDraw(id,book,nums,policy,search=false){
+  if(!hasBookRewardPolicy(policy,search))return limitCall('restrictionBegin',id,book.id,JSON.stringify(nums));
+  if(limitConnection.api<11)return null;
+  return limitCall('restrictionBeginWithPolicy',id,book.id,JSON.stringify(nums),search?0:policy.count,policy.perMs,search?-1:policy.fullMs??-1);
 }
 function limitBeginSession(a,book=curBook()){
-  if(!a||a.rv||!Array.isArray(a.nums)||a.nums.length<1||a.nums.length>5||!limitNativeAvailable()||a.nums.length<5&&!limitPartialRewardsAvailable())return;
+  if(!a||a.rv||!Array.isArray(a.nums)||!a.nums.length||!limitNativeAvailable())return;
+  const policy=normaliseDrawPrefs(a.drawPrefs),custom=hasBookRewardPolicy(policy);
+  if(a.nums.length>policy.count||!custom&&a.nums.length<DEFAULT_DRAW_COUNT&&limitConnection.api<9)return;
+  if(!a.limId){a.limId='draw-'+uid()+'-'+uid();if(!save()){delete a.limId;return}}
+  if(custom&&limitConnection.api<11)return;
   limitRead();
-  if(!a.limId){a.limId='draw-'+uid()+'-'+uid();if(!save())return}
-  try{const res=limitCall('restrictionBegin',a.limId,book.id,JSON.stringify(a.nums));a.limRegistered=!!res?.ok;a.limEligible=res?.eligible!==false;save()}catch(_){a.limRegistered=false}
+  try{
+    const res=limitRegisterDraw(a.limId,book,a.nums,policy);
+    a.limRegistered=!!res?.ok;a.limEligible=res?.eligible!==false;
+    if(Array.isArray(res?.eligibleNums))a.limFresh=res.eligibleNums;else delete a.limFresh;
+    save();
+  }catch(_){a.limRegistered=false}
+}
+function limitQueueDrawRecord(a,record){
+  if(a.rv)return;
+  if(!a.limId)limitBeginSession(a);
+  if(!a.limId||!a.drawPrefs&&!a.limRegistered)return;
+  const policy=normaliseDrawPrefs(a.drawPrefs);
+  if(!hasBookRewardPolicy(policy)&&record.nums.length!==DEFAULT_DRAW_COUNT&&!limitPartialRewardsAvailable())return;
+  record.limId=a.limId;
+  if(a.drawPrefs){record.limPolicy=policy;record.limDrawNums=a.nums.slice()}
 }
 function limitSettleRecord(record,book=curBook(),notify=false){
   if(!record.limId||record.limSettled||!limitNativeAvailable())return;
   try{
-    if(record.limSource==='search'){
-      if(!limitPartialRewardsAvailable())return;
-      const registered=limitCall('restrictionBegin',record.limId,book.id,JSON.stringify(record.nums));
+    const search=record.limSource==='search',originalNums=search?record.nums:record.limDrawNums;
+    if(originalNums){
+      if(search&&limitConnection.api<9)return;
+      const registered=limitRegisterDraw(record.limId,book,originalNums,normaliseDrawPrefs(record.limPolicy),search);
       if(!registered?.ok)return;
     }
     const ratings={};record.nums.forEach(n=>{if(/^[ABCD]$/.test(record.r?.[n]))ratings[n]=record.r[n]});
     const result=limitCall('restrictionFinish',record.limId,book.id,JSON.stringify(ratings));
     if(result?.ok||result?.terminal){
-      record.limWalletMs=Number(result.walletMs)||0;record.limSettled=true;record.limAward=Array.isArray(result.credited)?result.credited:[];save();
+      record.limWalletMs=Number(result.walletMs)||0;record.limSettled=true;record.limAward=Array.isArray(result.credited)?result.credited:[];
+      delete record.limDrawNums;delete record.limPolicy;save();
       if(notify&&!result.duplicate&&record.limWalletMs>0)toast(`持ち時間に${limitRewardTime(record.limWalletMs)}追加しました`);
       if(notify&&!result.duplicate&&record.limAward.length){
         const amounts=[...new Set(record.limAward.map(a=>limitRewardTime(a.ms)))];
@@ -959,17 +1024,19 @@ function limitInitialise(){
   limitSyncWarning();
 }
 function limitSessionHint(a){
-  if(!limitNativeAvailable()||a.rv||!Array.isArray(a.nums)||a.nums.length<1||a.nums.length>5||a.nums.length<5&&!limitPartialRewardsAvailable())return '';
+  if(!a||a.rv||!Array.isArray(a.nums)||!a.nums.length||!limitNativeAvailable())return '';
+  const policy=normaliseDrawPrefs(a.drawPrefs),custom=hasBookRewardPolicy(policy);
+  if(custom&&limitConnection.api<11)return '<div class="limit-session-hint"><span>設定した報酬の反映にはAPKの更新が必要です。</span></div>';
+  if(a.nums.length>policy.count||!custom&&a.nums.length<DEFAULT_DRAW_COUNT&&limitConnection.api<9)return '';
   if(!limitState?.enabled||!limitState.wallet&&!Object.values(limitState.rules||{}).some(r=>r.mode==='timed'))return '';
   if(a.limEligible===false)return '<div class="limit-session-hint"><b>この問題の追加時間は受け取り済み</b></div>';
-  const done=a.nums.filter(n=>/^[ABCD]$/.test(a.r?.[n])).length;
-  const bonus=(limitState.wallet?.bonusMinutes??limitState.defaultBonus??5)*60000;
-  const millis=done===5?bonus:limitPartialRewardsAvailable()?done*45000:0;
+  const eligible=Array.isArray(a.limFresh)?a.limFresh:a.nums;
+  const done=eligible.filter(n=>/^[ABCD]$/.test(a.r?.[n])).length;
+  const millis=done===policy.count?(policy.fullMs??defaultFullRewardMinutes()*60000):limitConnection.api>=9?done*policy.perMs:0;
   return `<div class="limit-session-hint"><b>記録で ＋${limitRewardTime(millis)}</b></div>`;
 }
 window.addEventListener('study-native-resume',()=>{
-  if(tab==='limits'){limitRead();render()}
-  else refreshBookGoalButtons();
+  refreshBookGoalButtons();
   limitInitialise();
 });
 window.addEventListener('study-native-pause',limitSyncWarning);
@@ -1389,6 +1456,7 @@ $('#mdl').addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
+    if(bookDrawEditing){e.preventDefault();closeBookDraw();return}
     if(editingPlan){e.preventDefault();closePlanEdit();return}
     if(bookEstimateOpen){e.preventDefault();closeBookEstimate();return}
     if(calendarDayOpen){e.preventDefault();closeCalendarDay();return}
@@ -1497,6 +1565,55 @@ function saveBookDeadline(value){
   refreshBookGoalButtons();
   toast(value?'締切日を保存しました':'締切日を解除しました');
 }
+let bookDrawEditing=null;
+function openBookDraw(){
+  if(tab!=='set'||bookDrawEditing)return;
+  const book=curBook(),prefs=bookDrawPrefs(book);
+  const native=limitNativeAvailable();if(native)limitRead();
+  $('#book-draw-name').textContent=book.name;
+  const count=$('#book-draw-count'),per=$('#book-draw-per'),full=$('#book-draw-full');
+  count.max=MAX_DRAW_COUNT;count.value=prefs.count;
+  per.max=full.max=MAX_REWARD_MINUTES;per.value=prefs.perMs/60000;
+  full.value=prefs.fullMs===null?'':prefs.fullMs/60000;
+  full.placeholder=String(defaultFullRewardMinutes());
+  $('#book-draw-compat').hidden=!native||limitConnection.api>=11;
+  $('#book-draw-message').textContent='';
+  pOpen($('#book-draw-dialog'));
+  const before=ovH;pushOv();bookDrawEditing={id:book.id,hadHistory:ovH>before};
+  $('#book-draw-close').focus({preventScroll:true});
+}
+function closeBookDraw(fromPop=false){
+  if(!bookDrawEditing)return;
+  const {hadHistory}=bookDrawEditing;bookDrawEditing=null;pClose($('#book-draw-dialog'));
+  $('#book-draw-open')?.focus({preventScroll:true});
+  if(!fromPop&&hadHistory)popOv(true);
+}
+function saveBookDraw(){
+  const book=S.books.find(b=>b.id===bookDrawEditing?.id);
+  if(!book)return;
+  const count=$('#book-draw-count').valueAsNumber,per=$('#book-draw-per'),full=$('#book-draw-full');
+  const validReward=input=>Number.isFinite(input.valueAsNumber)&&input.valueAsNumber>=0&&input.valueAsNumber<=MAX_REWARD_MINUTES&&!input.validity.stepMismatch;
+  if(!Number.isInteger(count)||count<1||count>MAX_DRAW_COUNT)return say('#book-draw-message',`出題数は1〜${MAX_DRAW_COUNT}問で入力してください`);
+  if(!validReward(per)||full.validity.badInput||full.value!==''&&!validReward(full))
+    return say('#book-draw-message',`報酬は0〜${MAX_REWARD_MINUTES}分で、小数第2位まで入力できます`);
+  const previous=book.drawPrefs;
+  book.drawPrefs={count,perMs:Math.round(per.valueAsNumber*60000),fullMs:full.value===''?null:Math.round(full.valueAsNumber*60000)};
+  if(!save()){
+    if(previous===undefined)delete book.drawPrefs;else book.drawPrefs=previous;
+    return say('#book-draw-message','保存できませんでした');
+  }
+  render();closeBookDraw();toast('保存しました');
+}
+$('#book-draw-dialog').addEventListener('click',e=>{
+  if(e.target.id==='book-draw-dialog'||e.target.closest('#book-draw-close'))closeBookDraw();
+});
+$('#book-draw-form').addEventListener('submit',e=>{e.preventDefault();saveBookDraw()});
+$('#book-draw-dialog').addEventListener('keydown',e=>{
+  if(e.key!=='Tab')return;
+  const controls=e.currentTarget.querySelectorAll('button,input'),first=controls[0],last=controls[controls.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+});
 function vSet(){
   const b=curBook(),many=S.books.length>1;
   const deadline=bookDeadlineDay(b.deadline)===null?'':b.deadline;
@@ -1533,6 +1650,7 @@ function vSet(){
       </form>
     </details>
     ${setupForm()}
+    <button type="button" class="settings-row settings-link" id="book-draw-open" aria-haspopup="dialog" aria-controls="book-draw-dialog"><span>ルーレット・報酬</span><span class="settings-value">${bookDrawPrefs(b).count}問</span></button>
     ${vPartGroups(b)}
     <details class="settings-row"${bkArm?' open':''}>
       <summary>この教材を削除</summary>
@@ -2133,7 +2251,7 @@ function maybeGreet(){
   clearTimeout(gt);gt=setTimeout(closeGreet,3000);
 }
 $('#gdl').addEventListener('click',closeGreet);
-const TTL={roulette:'ルーレット',rev:'復習',calc:'電卓',class:'分類',log:'記録',plan:'予定表',memo:'メモ',limits:'学習用ランチャー',set:'設定'};
+const TTL={roulette:'ルーレット',rev:'復習',calc:'電卓',class:'分類',log:'記録',plan:'予定表',memo:'メモ',set:'設定'};
 let curN=null,nT,nArm=false,ovH=0,ovSkip=0,drOpen=false;
 function pushOv(){try{history.pushState({ov:1},'');ovH++}catch(e){}}
 function popOv(skipEvent){if(ovH>0){ovH--;if(skipEvent)ovSkip++;try{history.back()}catch(e){if(skipEvent)ovSkip--}}}
@@ -2143,6 +2261,7 @@ $('#drw').addEventListener('click',e=>{
   if(e.target.id==='drw')return closeDrawer();
   const b=e.target.closest('button');if(!b)return;
   if(b.id==='dx')closeDrawer();
+  else if(b.id==='launcher-home'){closeDrawer();openLauncherHome()}
   else if(b.dataset.tab){go(b.dataset.tab);closeDrawer()}
 });
 const notesArr=()=>{if(!Array.isArray(S.notes))S.notes=[];return S.notes.filter(n=>n&&typeof n.id==='string'&&typeof n.body==='string')};
@@ -2282,7 +2401,7 @@ function wheelMakeFace(book=wheelBook()){
   s.bounds=[0];s.faceWeights.forEach(weight=>{cumulative+=weight;s.bounds.push(cumulative/sum)});
   if(sum>0)s.bounds[s.bounds.length-1]=1;
   s.minSpan=sum>0?Math.min(...s.faceWeights)/sum:1;
-  s.target=Math.min(5,s.picked.length+available.length);s.totalUnseen=wheelAll(book).length;s.cache=null;
+  s.target=Math.min(s.drawPrefs.count,s.picked.length+available.length);s.totalUnseen=wheelAll(book).length;s.cache=null;
 }
 function wheelSectorIndex(angle,bounds){
   if(bounds.length<2)return -1;
@@ -2331,7 +2450,7 @@ function wheelEditShared(kind,n,value){
 
 function wheelDraft(book){
   const s=wheelState,before=book.wheelDraft;
-  book.wheelDraft={v:1,order:s.order.slice(),picked:s.picked.slice(),angle:s.angle};
+  book.wheelDraft={v:1,order:s.order.slice(),picked:s.picked.slice(),angle:s.angle,drawPrefs:s.drawPrefs};
   if(save())return true;
   if(before===undefined)delete book.wheelDraft;else book.wheelDraft=before;
   return false;
@@ -2343,9 +2462,11 @@ function wheelOpen(){
   if(order.length){const seen=new Set(order);order.push(...all.filter(n=>!seen.has(n)))}
   else order=prefs.order==='random'?wheelShuffle(all):all;
   if(prefs.order==='parts')order.sort((a,b)=>a-b);
-  const picked=draft&&draft.v===1&&Array.isArray(draft.picked)?[...new Set(draft.picked)].filter(n=>valid.has(n)).slice(0,5):[];
+  const restored=draft&&draft.v===1&&Array.isArray(draft.picked)?[...new Set(draft.picked)].filter(n=>valid.has(n)):[];
+  const drawPrefs=restored.length?normaliseDrawPrefs(draft.drawPrefs):bookDrawPrefs(book);
+  const picked=restored.slice(0,drawPrefs.count);
   const angle=Number.isFinite(draft?.angle)?draft.angle%WHEEL_TAU:0;
-  wheelState={bookId:book.id,order,picked,target:Math.min(5,all.length),angle,prefs,face:[],shown:null,running:false,last:0,cache:null,replace:false,overflow:document.body.style.overflow,background:[]};
+  wheelState={bookId:book.id,order,picked,drawPrefs,angle,prefs,face:[],shown:null,running:false,last:0,cache:null,replace:false,overflow:document.body.style.overflow,background:[]};
   wheelMakeFace(book);
   const page=$('#wheel-page');page.hidden=false;document.body.style.overflow='hidden';
   for(const id of ['nav','app','quick-nav']){const e=document.getElementById(id);if(e){wheelState.background.push([e,e.hasAttribute('inert')]);e.setAttribute('inert','')}}
@@ -2441,7 +2562,7 @@ function wheelFinish(replace=false){
   if(!replace&&previous&&(Object.keys(previous.r||{}).length||previous.ms||previous.t0||String(previous.comment||'').trim())){
     s.replace=true;$('#wheel-error').textContent='記録中の問題を入れ替えますか？';wheelUpdate();return;
   }
-  const active={nums:s.picked.slice(),r:{},comment:'',ms:0,t0:null,rv:0};book.act=active;delete book.wheelDraft;
+  const active={nums:s.picked.slice(),r:{},comment:'',ms:0,t0:null,rv:0,drawPrefs:s.drawPrefs};book.act=active;delete book.wheelDraft;
   if(!save()){book.act=previous;if(draft!==undefined)book.wheelDraft=draft;$('#wheel-error').textContent='保存できませんでした';wheelUpdate();return}
   limitBeginSession(active,book);undoArm=false;wheelClose(false,true);tab='roulette';saveUI();render();window.scrollTo(0,0);
 }
@@ -2530,7 +2651,7 @@ window.addEventListener('resize',()=>{if(wheelState){wheelState.cache=null;wheel
 window.addEventListener('popstate',()=>{
   if(ovSkip>0){ovSkip--;return}
   let c=false;
-  if(wheelState&&!$('#wheel-config').hidden){wheelCloseConfig(true);c=true}else if(wheelState){wheelClose(true);c=true}else if(limitDialogOpen){closeLimitDialog(1);c=true}else if(bookEstimateOpen){closeBookEstimate(1);c=true}else if(editingPlan){closePlanEdit(1);c=true}else if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
+  if(wheelState&&!$('#wheel-config').hidden){wheelCloseConfig(true);c=true}else if(wheelState){wheelClose(true);c=true}else if(limitDialogOpen){closeLimitDialog(1);c=true}else if(bookDrawEditing){closeBookDraw(1);c=true}else if(bookEstimateOpen){closeBookEstimate(1);c=true}else if(editingPlan){closePlanEdit(1);c=true}else if(calendarDayOpen){closeCalendarDay(1);c=true}else if(calendarOpen){closeCalendar(1);c=true}else if(curN){closeNote(1);c=true}else if(drOpen){closeDrawer(1);c=true}
   if(c&&ovH>0)ovH--;
 });
 window.addEventListener('pagehide',flushNote);
@@ -2538,7 +2659,7 @@ function render(){
   if(window.__studyLauncherCalendar){if(calendarOpen)renderCalendar(false);return;}
   document.querySelectorAll('#drw button[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   const tt=$('#ttl');if(tt){tt.textContent=TTL[tab]||'';tt.disabled=tab!=='roulette';tt.setAttribute('aria-label',tab==='roulette'?'円のルーレットを開く':TTL[tab]||'')}
-  $('#app').innerHTML=(tab==='calc'||tab==='plan'||tab==='memo'||tab==='limits'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,plan:vPlan,memo:vMemo,limits:vLimits,set:vSet}[tab]();
+  $('#app').innerHTML=(tab==='calc'||tab==='plan'||tab==='memo'?'':vBar())+{roulette:vRoulette,rev:vRev,calc:vCalc,class:vClass,log:vLog,plan:vPlan,memo:vMemo,set:vSet}[tab]();
   refreshBookGoalButtons();
   if(tab==='calc')cUp();
   if(calendarOpen)renderCalendar();
@@ -2547,14 +2668,14 @@ function render(){
 function spin(rv){
   const p=rv?cdList():drawPool();if(!p.length||spinning)return;
   spinning=true;$(rv?'#rv':'#spin').disabled=true;
-  const pick=pickProblems(p,!!rv);
+  const drawPrefs=bookDrawPrefs(),pick=pickProblems(p,!!rv,drawPrefs.count);
   const sl=document.querySelectorAll('.slot');
   sl.forEach(s=>s.classList.add('spin'));
   const iv=setInterval(()=>sl.forEach(s=>s.textContent=lab(p[Math.floor(Math.random()*p.length)])),70);
   setTimeout(()=>{
     clearInterval(iv);
     sl.forEach((s,i)=>{s.classList.remove('spin');s.textContent=pick[i]!==undefined?lab(pick[i]):'–'});
-    setTimeout(()=>{S.act={nums:pick,r:{},comment:'',ms:0,t0:null,rv:rv?1:0};save();limitBeginSession(S.act);spinning=false;undoArm=false;render()},900);
+    setTimeout(()=>{S.act={nums:pick,r:{},comment:'',ms:0,t0:null,rv:rv?1:0,drawPrefs};save();limitBeginSession(S.act);spinning=false;undoArm=false;render()},900);
   },1400);
 }
 function delRec(ts){
@@ -2602,7 +2723,10 @@ function recOne(id,g){
   const beforeUsed=S.used.slice(),beforeRated={...S.rated};
   const first=!beforeUsed.includes(id)&&!/^[ABCD]$/.test(beforeRated[id]);
   const record={ts:Date.now(),nums:[id],r:{[id]:g},ms:0,one:1,c:sC.trim()};
-  if(first&&limitPartialRewardsAvailable()){record.limId='search-'+uid()+'-'+uid();record.limSource='search'}
+  if(first&&limitPartialRewardsAvailable()){
+    record.limId='search-'+uid()+'-'+uid();record.limSource='search';
+    const policy=bookDrawPrefs();if(hasBookRewardPolicy(policy,true))record.limPolicy=policy;
+  }
   S.log.push(record);
   if(!S.used.includes(id))S.used.push(id);
   S.rated[id]=g;
@@ -2611,6 +2735,7 @@ function recOne(id,g){
     sMsg='端末に記録を保存できませんでした。空き容量を確認してください。時間はまだ追加していません。';rdOne();return;
   }
   limitSettleRecord(record,curBook(),true);limitSyncWarning();
+  if(record.limPolicy&&limitConnection.api<11)toast('設定した報酬の反映にはAPKの更新が必要です');
   sMsg=lab(id)+'：'+g+'で記録';sC='';sR='';sId=0;sIn=['',''];rdOne();
 }
 function delOne(id){
@@ -2635,10 +2760,11 @@ $('#app').addEventListener('click',e=>{
   if(af&&af.dataset&&af.dataset.first){e.preventDefault();openChain(af.dataset.first,af.dataset.next);return}
   const b=e.target.closest('button');if(!b)return;
   const id=b.id,a=S.act;
+  if(id==='book-draw-open'){openBookDraw();return}
   if(id==='pg-add'){addPartGroup();return}
   if(id==='pg-save'){savePartGroups();return}
   if(b.dataset.pgRemove!==undefined){removePartGroup(+b.dataset.pgRemove);return}
-  if(tab==='limits'||b.id==='launcher-settings'){try{if(handleLimitClick(b))return}catch(error){toast(error.message);return}}
+  if(id==='launcher-settings'){openLauncherSettings();return}
   if(b.dataset.bk){if(b.dataset.bk===S.cur)openBookEstimate();else setBook(b.dataset.bk);return}
   if(id==='bkadd'){openAdd();return}
   if(id==='bdel'){if(!bkArm){bkArm=true;render();return}delBook();return}
@@ -2686,15 +2812,16 @@ $('#app').addEventListener('click',e=>{
     if(!dn.length)return say('#msg','1問以上、A〜Dの評価をつけてください');
     const ms=el(),beforeUsed=S.used.slice(),beforeRated={...S.rated};
     const record={ts:Date.now(),nums:dn,r:{...a.r},ms:ms,c:a.comment.trim(),rv:a.rv};
-    if(!a.rv&&a.limId&&a.limRegistered&&(dn.length===5||limitPartialRewardsAvailable()))record.limId=a.limId;
+    limitQueueDrawRecord(a,record);
     S.log.push(record);
     dn.forEach(n=>{S.rated[n]=a.r[n];if(!S.used.includes(n))S.used.push(n)});
     S.act=null;
     if(!save()){S.log.pop();S.used=beforeUsed;S.rated=beforeRated;S.act=a;return say('#msg','端末に記録を保存できませんでした。空き容量を確認してください。時間はまだ追加していません。')}
     go('log');
     limitSettleRecord(record,curBook(),true);limitSyncWarning();
-    if(record.limWalletMs>0||record.limAward?.length)render();
-    else if(!a.rv&&dn.length<5&&limitNativeAvailable()&&!limitPartialRewardsAvailable())toast('1問45秒の追加にはAPKの更新が必要です');
+    if(record.limSettled)render();
+    else if(record.limPolicy&&hasBookRewardPolicy(record.limPolicy)&&limitConnection.api<11)toast('設定した報酬の反映にはAPKの更新が必要です');
+    else if(!a.rv&&dn.length<DEFAULT_DRAW_COUNT&&limitNativeAvailable()&&!limitPartialRewardsAvailable())toast('1問ごとの報酬にはAPKの更新が必要です');
   }
   else if(id==='undo'){
     if(!undoArm){undoArm=true;render();return}
@@ -2789,6 +2916,7 @@ document.addEventListener('touchcancel',dCancel);
 const TABS=['roulette','calc','log','other'];
 function go(t,dir){
   if(window.__studyLauncherMemo&&t!=='memo')return;
+  if(t==='limits'){vLimits();return}
   if(t==='memo'&&typeof window.__studySyncMemo==='function')window.__studySyncMemo();
   const o=Math.max(0,TABS.includes(tab)?TABS.indexOf(tab):3),n=TABS.includes(t)?TABS.indexOf(t):3;
   tab=t;saveUI();delArm=null;cArm=false;bkArm=false;render();window.scrollTo(0,0);
@@ -2797,7 +2925,7 @@ function go(t,dir){
 let sw=null,swBlock=false;
 document.addEventListener('touchstart',e=>{
   swBlock=false;const p=e.touches[0];
-  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#book-estimate-dialog,#plan-edit-dialog,#drw,#ndl,#limit-dialog,#wheel-page'))?{x:p.clientX,y:p.clientY}:null;
+  sw=(e.touches.length===1&&!e.target.closest('input,textarea,select,#mdl,#hdl,#rdl,#gdl,#cdl,#calendar-day-dialog,#book-estimate-dialog,#book-draw-dialog,#plan-edit-dialog,#drw,#ndl,#limit-dialog,#wheel-page'))?{x:p.clientX,y:p.clientY}:null;
 },{passive:true});
 document.addEventListener('touchend',e=>{
   if(!sw||swBlock||spinning){sw=null;return}
@@ -2828,7 +2956,7 @@ prepareOffline();
     #drw .dp { left:auto; right:0; border-right:0; border-left:1px solid var(--bd); transform:translateX(100%); }
     #drw.show .dp { transform:none; }
     #drw .dh button { min-width:44px; min-height:44px; }
-    #drw button[data-tab] { min-height:50px; }
+    #drw button[data-tab], #launcher-home { min-height:50px; }
     .memo-tools { margin-bottom:12px; }
     .memo-tools input { background:var(--card); }
     .memo-count { margin:7px 2px 0; }
