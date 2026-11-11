@@ -1191,10 +1191,10 @@ function updatePartParams(root,book,selected,remaining){
   for(const button of root.querySelectorAll('[data-param-part]')){
     const n=+button.dataset.paramPart,p=info[n-1];
     const on=weightMode?!editGroup&&n===+root.dataset.editPart:p.on;
-    button.classList.toggle('on',on);
-    button.classList.toggle('out',!p.on);
+    button.classList.toggle('on',on&&(weightMode||p.left>0));
+    button.classList.toggle('out',!p.on||p.left===0);
     button.setAttribute('aria-pressed',String(on));
-    button.setAttribute('aria-label',`第${n}部、${weightMode?'出やすさ '+p.weight+(p.on?'':'、対象外'):'残り'+p.left+'問'}`);
+    button.setAttribute('aria-label',`第${n}部、${weightMode?'出やすさ '+p.weight+(p.on?'':'、対象外')+(p.left===0?'、未修なし':''):'残り'+p.left+'問'}`);
     button.querySelector('small').textContent=weightMode?String(p.weight):'残り'+p.left;
   }
   const editor=root.querySelector('.rw');
@@ -1280,7 +1280,13 @@ function bindPartParams(root,bookFor,refresh,edit){
   root.addEventListener('click',e=>{
     const group=e.target.closest(groupSlider);
     if(group&&root.dataset.paramMode==='weight'){selectGroup(group);return;}
-    const button=e.target.closest('button');if(!button)return;
+    const button=e.target.closest('button');
+    if(!button){
+      if(root.dataset.paramMode==='weight'&&e.target!==root&&!e.target.closest('input,textarea,select,label,output,a')&&(root.dataset.editPart||root.dataset.editGroup)){
+        root.dataset.editPart='';root.dataset.editGroup='';refresh();
+      }
+      return;
+    }
     const {paramView,paramPart,paramFirst}=button.dataset;
     if(paramView){root.dataset.paramMode=paramView;refresh();}
     else if(paramPart&&root.dataset.paramMode==='range')edit('part',+paramPart);
