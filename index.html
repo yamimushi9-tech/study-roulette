@@ -234,6 +234,7 @@ details.card[open]>summary{margin-bottom:10px}
 .sqb{min-height:44px;padding:3px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:9px;color:var(--mu);font-size:16px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
 .sqb small{display:block;font-size:11px;font-weight:600}
 .sqb.on{background:var(--pri);border-color:var(--pri);color:var(--pt)}
+.sqb:disabled{opacity:1;cursor:default}
 [data-param-mode="weight"] .sqb:not(.on){color:var(--tx)}
 [data-param-mode="weight"] .sqb.out:not(.on){color:var(--mu);opacity:.68}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:17px}
@@ -1176,6 +1177,7 @@ function showGroupWeight(slider,weight){
 function updatePartParams(root,book,selected,remaining){
   const weightMode=root.dataset.paramMode==='weight';
   const groups=weightMode?partGroupsFor(book):[];
+  if(root.dataset.editPart&&remaining[+root.dataset.editPart-1]===0)root.dataset.editPart='';
   const target=weightMode?paramTarget(root,book,groups):null;
   const editGroup=+root.dataset.editGroup;
   const info=book.parts.map((_,i)=>({left:remaining[i],weight:partWeight(i+1,book),on:selected.has(i+1),first:partFromStart(i+1,book)}));
@@ -1190,9 +1192,11 @@ function updatePartParams(root,book,selected,remaining){
   for(const button of root.querySelectorAll('[data-param-view]'))button.setAttribute('aria-pressed',String(button.dataset.paramView===(weightMode?'weight':'range')));
   for(const button of root.querySelectorAll('[data-param-part]')){
     const n=+button.dataset.paramPart,p=info[n-1];
-    const on=weightMode?!editGroup&&n===+root.dataset.editPart:p.on;
-    button.classList.toggle('on',on&&(weightMode||p.left>0));
-    button.classList.toggle('out',!p.on||p.left===0);
+    const empty=p.left===0;
+    const on=!empty&&(weightMode?!editGroup&&n===+root.dataset.editPart:p.on);
+    button.disabled=empty;
+    button.classList.toggle('on',on);
+    button.classList.toggle('out',!p.on||empty);
     button.setAttribute('aria-pressed',String(on));
     button.setAttribute('aria-label',`第${n}部、${weightMode?'出やすさ '+p.weight+(p.on?'':'、対象外')+(p.left===0?'、未修なし':''):'残り'+p.left+'問'}`);
     button.querySelector('small').textContent=weightMode?String(p.weight):'残り'+p.left;
@@ -1287,6 +1291,7 @@ function bindPartParams(root,bookFor,refresh,edit){
       }
       return;
     }
+    if(button.disabled)return;
     const {paramView,paramPart,paramFirst}=button.dataset;
     if(paramView){root.dataset.paramMode=paramView;refresh();}
     else if(paramPart&&root.dataset.paramMode==='range')edit('part',+paramPart);
